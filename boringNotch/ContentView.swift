@@ -23,7 +23,23 @@ struct ContentView: View {
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
-    @ObservedObject var checklistStore = ChecklistStore.shared
+
+    @Default(.checklistAlwaysOn) var checklistAlwaysOn
+    @Default(.checklistAlwaysOnHeight) var checklistAlwaysOnHeight
+    @State private var isHoveringChecklist = false
+
+    /// Open-notch height: intrinsic (content-fitting) for the Checklist tab so the
+    /// notch resizes as items expand/collapse; fixed height for every other view.
+    private var openNotchFrameHeight: CGFloat? {
+        guard vm.notchState == .open else { return nil }
+        if coordinator.currentView == .checklist { return nil }
+        return vm.notchSize.height
+    }
+
+    /// Window content height — grows for the Checklist always-on panel.
+    private var contentMaxHeight: CGFloat {
+        checklistAlwaysOn ? currentWindowHeight() : windowSize.height
+    }
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -148,7 +164,7 @@ struct ContentView: View {
                     .opacity((isNotchHeightZero && vm.notchState == .closed) ? 0.01 : 1)
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(height: openNotchFrameHeight)
                     .conditionalModifier(true) { view in
                         return view
                             .animation(vm.notchState == .open ? StandardAnimations.open : StandardAnimations.close, value: vm.notchState)
@@ -236,10 +252,22 @@ struct ContentView: View {
                         .fill(Color.black.opacity(0.01))
                         .frame(width: computedChinWidth, height: vm.chinHeight)
                 }
+
+                // Always-on Checklist: rendered directly beneath the notch, always
+                // visible (item 7). Off by default.
+                if checklistAlwaysOn {
+                    ChecklistView(
+                        isHovering: $isHoveringChecklist,
+                        maxListHeight: max(120, checklistAlwaysOnHeight - 140)
+                    )
+                    .environmentObject(vm)
+                    .frame(width: openNotchSize.width - 24)
+                    .padding(.top, 6)
+                }
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(maxWidth: windowSize.width, maxHeight: contentMaxHeight, alignment: .top)
         .ignoresSafeArea(.all)
         .compositingGroup()
         .scaleEffect(
@@ -336,14 +364,6 @@ struct ContentView: View {
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
-                      } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && checklistStore.currentItem != nil && !vm.hideOnClosed {
-                          HStack {
-                              Rectangle()
-                                  .fill(.black)
-                                  .frame(width: vm.closedNotchSize.width + 20)
-                              ChecklistLiveActivity()
-                          }
-                          .frame(height: displayClosedNotchHeight, alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
                        } else if vm.notchState == .open {
@@ -413,7 +433,7 @@ struct ContentView: View {
                     case .shelf:
                         ShelfView()
                     case .checklist:
-                        ChecklistView()
+                        ChecklistView(isHovering: $isHoveringChecklist)
                     }
                 }
                 .transition(
@@ -650,7 +670,7 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
+        guard vm.notchState == .open && !vm.isHoveringCalendar && !isHoveringChecklist else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20

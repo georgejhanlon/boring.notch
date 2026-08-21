@@ -62,14 +62,15 @@ extension Checklist {
     /// The first item that hasn't been ticked yet — what the collapsed states show.
     var currentItem: ChecklistItem? { items.first { !$0.done } }
 
-    /// Human-facing label, used by the history picker. Falls back through
-    /// name → title → first item text → "Untitled".
-    var displayName: String {
+    /// Human-facing label. The JSON `name` wins; otherwise the caller's default
+    /// (the "Default checklist name" setting, "Today" out of the box).
+    func displayName(default defaultName: String) -> String {
         if let name, !name.isEmpty { return name }
-        if !title.isEmpty { return title }
-        if let first = items.first?.text, !first.isEmpty { return first }
-        return "Untitled"
+        return defaultName
     }
+
+    var activeItems: [ChecklistItem] { items.filter { !$0.done } }
+    var completedItems: [ChecklistItem] { items.filter { $0.done } }
 
     /// Filesystem slug for archive filenames: the name lowercased and hyphenated,
     /// or a slug of the first item's text when name is nil.

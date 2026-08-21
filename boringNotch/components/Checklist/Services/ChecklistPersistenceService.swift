@@ -81,6 +81,34 @@ final class ChecklistPersistenceService {
         }
     }
 
+    /// URLs of archived checklist files, newest first.
+    func archiveURLs() -> [URL] {
+        let fm = FileManager.default
+        guard let urls = try? fm.contentsOfDirectory(
+            at: archiveDirURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        return urls
+            .filter { $0.pathExtension.lowercased() == "json" }
+            .sorted { Self.modificationDate($0) > Self.modificationDate($1) }
+    }
+
+    /// Deletes archived files beyond the newest `limit`. `limit <= 0` keeps all.
+    func pruneArchive(keeping limit: Int) {
+        guard limit > 0 else { return }
+        let urls = archiveURLs()
+        guard urls.count > limit else { return }
+        let fm = FileManager.default
+        for url in urls.dropFirst(limit) {
+            try? fm.removeItem(at: url)
+        }
+    }
+
+    static func modificationDate(_ url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+    }
+
     private static let archiveTimestampFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]

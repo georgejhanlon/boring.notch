@@ -8,6 +8,7 @@
 //
 
 import Foundation
+import Defaults
 
 @MainActor
 final class ChecklistStore: ObservableObject {
@@ -73,9 +74,16 @@ final class ChecklistStore: ObservableObject {
     func activate(_ newChecklist: Checklist) {
         // Slug comes from the checklist being archived, not the incoming one.
         persistence.archiveCurrentFile(slug: checklist.archiveSlug)
+        persistence.pruneArchive(keeping: Defaults[.checklistArchiveRetention])
         checklist = newChecklist
         lastWrittenData = persistence.save(newChecklist)
         refreshHistory()
+    }
+
+    /// Archives the current checklist and replaces it with an empty one.
+    /// Backs the settings "Clear current checklist" action.
+    func clearCurrent() {
+        activate(.empty)
     }
 
     /// Loads an archived checklist as the new current one — same path as firing.
@@ -87,26 +95,14 @@ final class ChecklistStore: ObservableObject {
 
     /// Rebuilds `recentArchives` from the archive directory (newest first, top 10).
     func refreshHistory() {
-        let fm = FileManager.default
-        guard let urls = try? fm.contentsOfDirectory(
-            at: persistence.archiveDirURL,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            recentArchives = []
-            return
+        let defaultName = Defaults[.checklistDefaultName]
+        let archives = persistence.archiveURLs().map { url -> ArchivedChecklist in
+            let date = ChecklistPersistenceService.modificationDate(url)
+            let name = persistence.load(from: url)?.displayName(default: defaultName)
+                ?? url.deletingPathExtension().lastPathComponent
+            return ArchivedChecklist(url: url, name: name, date: date)
         }
-
-        let archives = urls
-            .filter { $0.pathExtension.lowercased() == "json" }
-            .map { url -> ArchivedChecklist in
-                let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                let name = persistence.load(from: url)?.displayName ?? url.deletingPathExtension().lastPathComponent
-                return ArchivedChecklist(url: url, name: name, date: date)
-            }
-            .sorted { $0.date > $1.date }
-
-        recentArchives = Array(archives.prefix(10))
+        recentArchives = Array(archives.prefix(max(0, Defaults[.checklistRecentLength])))
     }
 
     // MARK: - File watching
