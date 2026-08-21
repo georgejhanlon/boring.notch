@@ -54,6 +54,11 @@ final class ChecklistStore: ObservableObject {
         guard let idx = checklist.items.firstIndex(where: { $0.id == item.id }) else { return }
         checklist.items[idx].done.toggle()
         persist()
+
+        // Auto-unpin once everything is ticked — nothing left to keep in the notch.
+        if !checklist.isEmpty && checklist.activeItems.isEmpty {
+            Defaults[.checklistAlwaysOn] = false
+        }
     }
 
     func reload() {
