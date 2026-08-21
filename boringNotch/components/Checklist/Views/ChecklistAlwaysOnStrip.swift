@@ -2,11 +2,12 @@
 //  ChecklistAlwaysOnStrip.swift
 //  boringNotch
 //
-//  The compact always-on row rendered inside the closed notch: a horizontal
-//  strip of dots (one per upcoming item) with a short label beneath each, plus
-//  a small trailing chevron to open the full notch. Tapping a dot completes the
-//  item — it swooshes off to the leading edge and the next slides in from the
-//  trailing edge, without waking the notch.
+//  The compact always-on row rendered inside the closed notch: a narrow strip
+//  (about the width of the notch) of evenly-spaced dots, each with a short label
+//  that wraps to two lines before truncating, and a small open chevron on the
+//  far right. Tapping a dot marks it done in place (grey dot with a tick cutout
+//  and struck-through text) and then swooshes it off to the leading edge; the
+//  next item slides in from the trailing edge. Ticking never wakes the notch.
 //
 
 import SwiftUI
@@ -20,55 +21,86 @@ struct ChecklistAlwaysOnStrip: View {
     @Default(.checklistAlwaysOnCount) private var count
     @Default(.checklistAnimationSpeed) private var animationSpeed
 
+    /// Items shown mid-completion: grey dot + tick, struck-through text, briefly,
+    /// before they actually leave the list and swoosh away.
+    @State private var completing: Set<UUID> = []
+
     private var visibleItems: [ChecklistItem] {
         Array(store.checklist.activeItems.prefix(max(1, count)))
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                ForEach(visibleItems) { item in
-                    dot(for: item)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                }
+        HStack(alignment: .top, spacing: 2) {
+            ForEach(visibleItems) { item in
+                dot(for: item)
+                    .frame(maxWidth: .infinity)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    ))
             }
-            .animation(.spring(response: animationSpeed.response, dampingFraction: 0.75),
-                       value: store.checklist.activeItems)
 
             Button(action: onOpen) {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(.gray)
+                    .frame(width: 12)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Open checklist")
         }
-        .frame(maxWidth: .infinity)
+        .animation(.spring(response: animationSpeed.response, dampingFraction: 0.78),
+                   value: store.checklist.activeItems)
     }
 
     private func dot(for item: ChecklistItem) -> some View {
-        Button {
-            withAnimation(.spring(response: animationSpeed.response, dampingFraction: 0.75)) {
-                store.toggle(item)
-            }
+        let isCompleting = completing.contains(item.id)
+        return Button {
+            complete(item)
         } label: {
             VStack(spacing: 2) {
-                Circle()
-                    .strokeBorder(Color.white.opacity(0.55), lineWidth: 1.2)
-                    .frame(width: 7, height: 7)
+                ZStack {
+                    if isCompleting {
+                        // Grey dot with a tick "cut out" of it.
+                        Image(systemName: "checkmark.circle.fill")
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.black, .gray)
+                            .font(.system(size: 9, weight: .bold))
+                    } else {
+                        Circle()
+                            .strokeBorder(Color.white.opacity(0.55), lineWidth: 1.2)
+                            .frame(width: 7, height: 7)
+                    }
+                }
+                .frame(width: 9, height: 9)
+
                 Text(item.text)
                     .font(.system(size: 8, weight: .medium, design: .rounded))
                     .foregroundStyle(.gray)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: 46)
+                    .strikethrough(isCompleting, color: .gray)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// Two-stage completion: show the done state in place, then remove it so the
+    /// removal transition swooshes it away and the next item slides in.
+    private func complete(_ item: ChecklistItem) {
+        guard !completing.contains(item.id) else { return }
+        withAnimation(.easeOut(duration: 0.18)) {
+            _ = completing.insert(item.id)
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(420))
+            withAnimation(.spring(response: animationSpeed.response, dampingFraction: 0.78)) {
+                store.toggle(item)
+            }
+            completing.remove(item.id)
+        }
     }
 }

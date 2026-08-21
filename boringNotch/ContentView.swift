@@ -421,7 +421,9 @@ struct ContentView: View {
             // Only when enabled, idle (closed), and there is a checklist.
             if alwaysOnStripActive {
                 ChecklistAlwaysOnStrip(onOpen: { _ = doOpen() })
-                    .padding(.horizontal, 10)
+                    // Keep the strip roughly the width of the notch, just a little
+                    // wider each side — not the full open-notch width.
+                    .frame(width: vm.closedNotchSize.width + 96)
                     .padding(.top, -6)
                     .padding(.bottom, 3)
                     .transition(.opacity)
