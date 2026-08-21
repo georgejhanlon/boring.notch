@@ -189,7 +189,11 @@ struct ChecklistView: View {
             .buttonStyle(.plain)
 
             if showCompletedSection {
-                VStack(alignment: .leading, spacing: spacing) {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 130), spacing: spacing, alignment: .leading)],
+                    alignment: .leading,
+                    spacing: spacing
+                ) {
                     ForEach(store.checklist.completedItems) { item in
                         row(for: item)
                     }
