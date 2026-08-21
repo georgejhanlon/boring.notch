@@ -113,16 +113,9 @@ struct ChecklistView: View {
                 .buttonStyle(.plain)
                 .help("Keep the checklist visible in the notch")
 
-                Button {
+                HoldToDeleteButton {
                     withAnimation(.smooth) { store.clearCurrent() }
-                } label: {
-                    Image(systemName: "trash")
-                        .imageScale(.small)
-                        .foregroundStyle(.gray)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .help("Clear the current checklist (archived to history)")
             }
 
             Spacer(minLength: 8)
