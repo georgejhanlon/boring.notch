@@ -26,6 +26,7 @@ struct ChecklistView: View {
     @Default(.checklistShowCompleted) private var showCompleted
     @Default(.checklistDefaultName) private var defaultName
     @Default(.checklistAnimationSpeed) private var animationSpeed
+    @Default(.checklistAlwaysOn) private var alwaysOn
 
     @State private var expanded = true
     @State private var showRecent = false
@@ -98,6 +99,32 @@ struct ChecklistView: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
 
+            // Little always-on toggle beside the name — pins the checklist strip
+            // inside the notch (item 7). Only shown when there is a checklist.
+            if !store.isEmpty {
+                Button {
+                    withAnimation(.smooth) { alwaysOn.toggle() }
+                } label: {
+                    Image(systemName: alwaysOn ? "pin.fill" : "pin")
+                        .imageScale(.small)
+                        .foregroundStyle(alwaysOn ? Color.accentColor : .gray)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Keep the checklist visible in the notch")
+
+                Button {
+                    withAnimation(.smooth) { store.clearCurrent() }
+                } label: {
+                    Image(systemName: "trash")
+                        .imageScale(.small)
+                        .foregroundStyle(.gray)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Clear the current checklist (archived to history)")
+            }
+
             Spacer(minLength: 8)
 
             Button {
@@ -119,8 +146,14 @@ struct ChecklistView: View {
     // MARK: - Active list (with completion swoosh)
 
     private var activeList: some View {
+        // Items flow left-to-right and wrap to the next row before the list needs
+        // to scroll down.
         ScrollView(.vertical) {
-            LazyVStack(alignment: .leading, spacing: spacing) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 130), spacing: spacing, alignment: .leading)],
+                alignment: .leading,
+                spacing: spacing
+            ) {
                 ForEach(store.checklist.activeItems) { item in
                     row(for: item)
                         .transition(.asymmetric(

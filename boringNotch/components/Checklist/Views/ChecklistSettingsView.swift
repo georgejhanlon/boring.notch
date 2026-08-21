@@ -12,7 +12,7 @@ import SwiftUI
 
 struct ChecklistSettings: View {
     @Default(.checklistAlwaysOn) private var alwaysOn
-    @Default(.checklistAlwaysOnHeight) private var alwaysOnHeight
+    @Default(.checklistAlwaysOnCount) private var alwaysOnCount
     @Default(.checklistArchiveRetention) private var archiveRetention
     @Default(.checklistRecentLength) private var recentLength
     @Default(.checklistAnimationSpeed) private var animationSpeed
@@ -50,16 +50,15 @@ struct ChecklistSettings: View {
                 }
                 .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Always-on notch height: \(Int(alwaysOnHeight)) px")
-                    Slider(value: $alwaysOnHeight, in: 200...600, step: 10)
+                Stepper(value: $alwaysOnCount, in: 1...6) {
+                    Text("Items shown in strip: \(alwaysOnCount)")
                 }
                 .disabled(!alwaysOn)
                 .opacity(alwaysOn ? 1 : 0.5)
             } header: {
                 Text("Always-on")
             } footer: {
-                Text("Keeps the notch enlarged with the full checklist rendered directly beneath it, always visible.")
+                Text("Shows a compact row of upcoming items inside the notch, always visible. Tap a dot to complete it.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

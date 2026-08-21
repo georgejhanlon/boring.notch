@@ -24,9 +24,16 @@ struct ContentView: View {
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
 
+    @ObservedObject var checklistStore = ChecklistStore.shared
     @Default(.checklistAlwaysOn) var checklistAlwaysOn
-    @Default(.checklistAlwaysOnHeight) var checklistAlwaysOnHeight
     @State private var isHoveringChecklist = false
+
+    /// Whether the compact always-on checklist strip is currently shown inside
+    /// the closed notch. While active, hover/tap must not auto-open the notch —
+    /// the strip's own chevron opens it explicitly.
+    private var alwaysOnStripActive: Bool {
+        checklistAlwaysOn && vm.notchState == .closed && !checklistStore.isEmpty
+    }
 
     /// Open-notch height: intrinsic (content-fitting) for the Checklist tab so the
     /// notch resizes as items expand/collapse; fixed height for every other view.
@@ -34,11 +41,6 @@ struct ContentView: View {
         guard vm.notchState == .open else { return nil }
         if coordinator.currentView == .checklist { return nil }
         return vm.notchSize.height
-    }
-
-    /// Window content height — grows for the Checklist always-on panel.
-    private var contentMaxHeight: CGFloat {
-        checklistAlwaysOn ? currentWindowHeight() : windowSize.height
     }
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -172,9 +174,13 @@ struct ContentView: View {
                     }
                     .contentShape(Rectangle())
                     .onHover { hovering in
+                        // Don't wake the notch while the always-on strip is showing.
+                        if alwaysOnStripActive { return }
                         handleHover(hovering)
                     }
                     .onTapGesture {
+                        // Ticking a strip item must not open the notch; use the chevron.
+                        if alwaysOnStripActive { return }
                         doOpen()
                     }
                     .conditionalModifier(Defaults[.enableGestures]) { view in
@@ -252,22 +258,10 @@ struct ContentView: View {
                         .fill(Color.black.opacity(0.01))
                         .frame(width: computedChinWidth, height: vm.chinHeight)
                 }
-
-                // Always-on Checklist: rendered directly beneath the notch, always
-                // visible (item 7). Off by default.
-                if checklistAlwaysOn {
-                    ChecklistView(
-                        isHovering: $isHoveringChecklist,
-                        maxListHeight: max(120, checklistAlwaysOnHeight - 140)
-                    )
-                    .environmentObject(vm)
-                    .frame(width: openNotchSize.width - 24)
-                    .padding(.top, 6)
-                }
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: contentMaxHeight, alignment: .top)
+        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .ignoresSafeArea(.all)
         .compositingGroup()
         .scaleEffect(
@@ -421,6 +415,19 @@ struct ContentView: View {
                       .fixedSize()
               }
               .zIndex(1)
+
+            // Always-on Checklist strip: a compact horizontal row of dots rendered
+            // inside the black notch so it grows barely larger than the notch.
+            // Only when enabled, idle (closed), and there is a checklist.
+            if alwaysOnStripActive {
+                ChecklistAlwaysOnStrip(onOpen: { _ = doOpen() })
+                    .padding(.horizontal, 10)
+                    .padding(.top, -6)
+                    .padding(.bottom, 3)
+                    .transition(.opacity)
+                    .zIndex(0)
+            }
+
             if vm.notchState == .open {
                 VStack {
                     switch coordinator.currentView {

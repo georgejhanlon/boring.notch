@@ -37,10 +37,10 @@ enum ChecklistAnimationSpeed: String, CaseIterable, Identifiable, Defaults.Seria
 }
 
 extension Defaults.Keys {
-    /// Always-on mode: keep the notch enlarged with the checklist rendered beneath it.
+    /// Always-on mode: show a compact checklist strip inside the closed notch.
     static let checklistAlwaysOn = Key<Bool>("checklistAlwaysOn", default: false)
-    /// Total notch/window height (points) used while always-on is enabled.
-    static let checklistAlwaysOnHeight = Key<Double>("checklistAlwaysOnHeight", default: 320)
+    /// How many upcoming items appear in the always-on strip.
+    static let checklistAlwaysOnCount = Key<Int>("checklistAlwaysOnCount", default: 4)
     /// Whether the "completed" section is shown in the expanded panel.
     static let checklistShowCompleted = Key<Bool>("checklistShowCompleted", default: true)
     /// Number of archived checklists to keep on disk. 0 = unlimited.

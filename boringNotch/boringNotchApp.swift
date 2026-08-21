@@ -84,7 +84,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowScreenDidChangeObserver: Any?
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
     private var observers: [Any] = []
-    private var checklistWindowObservation: Defaults.Observation?
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -265,7 +264,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func createBoringNotchWindow(for screen: NSScreen, with viewModel: BoringViewModel) -> NSWindow {
-        let rect = NSRect(x: 0, y: 0, width: windowSize.width, height: currentWindowHeight())
+        let rect = NSRect(x: 0, y: 0, width: windowSize.width, height: windowSize.height)
         let styleMask: NSWindow.StyleMask = [.borderless, .nonactivatingPanel, .utilityWindow, .hudWindow]
         
         let window = BoringNotchSkyLightWindow(contentRect: rect, styleMask: styleMask, backing: .buffered, defer: false)
@@ -312,28 +311,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.alphaValue = 1
     }
 
-    /// Resizes the notch window(s) to fit the Checklist always-on panel (or back
-    /// to the standard height when it's off), keeping them anchored to the top.
-    @MainActor
-    private func applyAlwaysOnWindowSize() {
-        let height = currentWindowHeight()
-        let targets: [NSWindow] = Defaults[.showOnAllDisplays]
-            ? Array(windows.values)
-            : (window.map { [$0] } ?? [])
-
-        for target in targets {
-            guard let screen = target.screen ?? NSScreen.main else { continue }
-            let screenFrame = screen.frame
-            let frame = NSRect(
-                x: screenFrame.origin.x + (screenFrame.width / 2) - windowSize.width / 2,
-                y: screenFrame.origin.y + screenFrame.height - height,
-                width: windowSize.width,
-                height: height
-            )
-            target.setFrame(frame, display: true, animate: false)
-        }
-    }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         NotificationCenter.default.addObserver(
@@ -360,13 +337,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.setupDragDetectors()
             }
         })
-
-        // Resize the notch window when Checklist always-on mode / height changes.
-        checklistWindowObservation = Defaults.observe(keys: .checklistAlwaysOn, .checklistAlwaysOnHeight) { [weak self] in
-            Task { @MainActor in
-                self?.applyAlwaysOnWindowSize()
-            }
-        }
 
         observers.append(NotificationCenter.default.addObserver(
             forName: Notification.Name.automaticallySwitchDisplayChanged, object: nil, queue: nil
