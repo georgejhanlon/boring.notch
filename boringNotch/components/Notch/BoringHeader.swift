@@ -48,6 +48,21 @@ struct BoringHeader: View {
                         )
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
+                        Button(action: {
+                            withAnimation(.smooth) {
+                                coordinator.currentView = coordinator.currentView == .claude ? .home : .claude
+                            }
+                        }) {
+                            Capsule()
+                                .fill(coordinator.currentView == .claude ? Color(nsColor: .secondarySystemFill) : .black)
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    ClaudeMark(size: 15, color: coordinator.currentView == .claude ? .claudeOrange : .gray)
+                                }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .help("Claude")
+
                         if Defaults[.showMirror] {
                             Button(action: {
                                 vm.toggleCameraPreview()

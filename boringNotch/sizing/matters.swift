@@ -15,6 +15,12 @@ let batterySneakSize: CGSize = .init(width: 160, height: 1)
 let shadowPadding: CGFloat = 20
 let openNotchSize: CGSize = .init(width: 640, height: 190)
 let windowSize: CGSize = .init(width: openNotchSize.width, height: openNotchSize.height + shadowPadding)
+
+// The Claude chat tab expands the notch into a taller panel so an embedded
+// claude.ai chat has room. The window is resized to `claudeWindowSize` while the
+// tab is open (see NotchWindowHeightResizer) and restored to `windowSize` after.
+let claudeNotchSize: CGSize = .init(width: 640, height: 520)
+let claudeWindowSize: CGSize = .init(width: claudeNotchSize.width, height: claudeNotchSize.height + shadowPadding)
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 
 // Horizontal gap between closed-state live-activity content (album art / waveform)

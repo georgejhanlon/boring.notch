@@ -44,6 +44,8 @@ struct ContentView: View {
         // rounded corners stay within the window. Email's content is kept within
         // that budget so it never overflows/clips.
         if coordinator.currentView == .checklist { return nil }
+        // Claude expands into a taller chat panel (the window is grown to match).
+        if coordinator.currentView == .claude { return claudeNotchSize.height }
         return vm.notchSize.height
     }
     @State private var hoverTask: Task<Void, Never>?
@@ -265,7 +267,11 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(
+            maxWidth: windowSize.width,
+            maxHeight: (coordinator.currentView == .claude && vm.notchState == .open) ? claudeWindowSize.height : windowSize.height,
+            alignment: .top
+        )
         .ignoresSafeArea(.all)
         .compositingGroup()
         .scaleEffect(
@@ -449,6 +455,8 @@ struct ContentView: View {
                         ShelfView()
                     case .checklist:
                         ChecklistView(isHovering: $isHoveringChecklist)
+                    case .claude:
+                        ClaudeChatView()
                     }
                 }
                 .transition(
