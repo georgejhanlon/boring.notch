@@ -19,6 +19,7 @@ struct ShelfItemView: View {
     @EnvironmentObject private var quickLookService: QuickLookService
     @State private var showStack = false
     @State private var debouncedDropTarget = false
+    @State private var isHovering = false
 
     private var isSelected: Bool { viewModel.isSelected }
     private var shouldHideDuringDrag: Bool { selection.isDragging && selection.isSelected(item.id) && false }
@@ -61,6 +62,13 @@ struct ShelfItemView: View {
                     .padding(.horizontal, 5)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            removeButton
+                .padding(4)
+        }
+        .onHover { hovering in
+            isHovering = hovering
+        }
         .onChange(of: viewModel.isDropTargeted) { _, targeted in
             vm.dragDetectorTargeting = targeted
             // Debounce drop target state changes
@@ -98,6 +106,25 @@ struct ShelfItemView: View {
             .truncationMode(.middle)
             .multilineTextAlignment(.center)
             .frame(height: 30, alignment: .top)
+    }
+
+    private var removeButton: some View {
+        Button {
+            selection.clear()
+            ShelfStateViewModel.shared.remove(item)
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 16, weight: .bold))
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, .black.opacity(0.55))
+                .shadow(color: .black.opacity(0.35), radius: 2, x: 0, y: 1)
+        }
+        .buttonStyle(.plain)
+        .contentShape(Circle())
+        .help("Remove from shelf")
+        .opacity(isHovering ? 1 : 0)
+        .allowsHitTesting(isHovering)
+        .animation(.easeInOut(duration: 0.12), value: isHovering)
     }
 
     private var backgroundView: some View {

@@ -320,6 +320,51 @@ private class SharingServiceDelegate: NSObject {}
         }
     }
 
+    /// Shares items already sitting on the shelf via the selected provider.
+    /// Files and links are shared directly; text items are combined and shared as raw
+    /// text when the provider supports it, otherwise written to a temporary file.
+    @MainActor
+    func shareShelfItems(_ items: [ShelfItem], using shareProvider: QuickShareProvider, from view: NSView?) async {
+        var itemsToShare: [Any] = []
+        var textParts: [String] = []
+
+        for item in items {
+            switch item.kind {
+            case .file:
+                if let url = ShelfStateViewModel.shared.resolveAndUpdateBookmark(for: item) {
+                    itemsToShare.append(url)
+                }
+            case .link(let url):
+                itemsToShare.append(url)
+            case .text(let string):
+                textParts.append(string)
+            }
+        }
+
+        let combinedText = textParts.isEmpty ? nil : textParts.joined(separator: "\n")
+
+        // Only text on the shelf: share it directly (or via a temp file when unsupported).
+        if itemsToShare.isEmpty, let text = combinedText {
+            if shareProvider.supportsRawText {
+                await shareFilesOrText([text], using: shareProvider, from: view)
+            } else if let tempTextURL = await TemporaryFileStorageService.shared.createTempFile(for: .text(text)) {
+                await shareFilesOrText([tempTextURL], using: shareProvider, from: view)
+                TemporaryFileStorageService.shared.removeTemporaryFileIfNeeded(at: tempTextURL)
+            } else {
+                await shareFilesOrText([text], using: shareProvider, from: view)
+            }
+            return
+        }
+
+        // Files/links (plus any text the provider can carry alongside them).
+        if let text = combinedText, shareProvider.supportsRawText {
+            itemsToShare.append(text)
+        }
+        if !itemsToShare.isEmpty {
+            await shareFilesOrText(itemsToShare, using: shareProvider, from: view)
+        }
+    }
+
     private func resolveShelfItemBookmark(for fileURL: URL) async -> URL? {
         let items = await ShelfStateViewModel.shared.items
 

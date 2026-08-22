@@ -32,11 +32,6 @@ struct FileShareView: View {
                 Task { await handleDrop(providers) }
                 return true
             }
-            .onTapGesture {
-                Task {
-                    await handleClick()
-                }
-            }
     }
 
     private var dropArea: some View {
@@ -82,12 +77,12 @@ struct FileShareView: View {
                         )
                         .animation(.spring(response: 0.36, dampingFraction: 0.7), value: vm.dropZoneTargeting)
                 }
+                .contentShape(Circle())
+                .onTapGesture {
+                    Task { await handleClick() }
+                }
 
-                Text(selectedProvider.id)
-                    .font(.system(.headline, design: .rounded))
-                    .foregroundColor(.white.opacity(0.8))
-                    .multilineTextAlignment(.center)
-
+                providerSelector
             }
             .padding(18)
             
@@ -105,6 +100,38 @@ struct FileShareView: View {
         .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 
+    // MARK: - Provider Selector
+
+    private var providerSelector: some View {
+        Menu {
+            ForEach(quickShare.availableProviders, id: \.id) { provider in
+                Button {
+                    quickShareProvider = provider.id
+                } label: {
+                    if provider.id == selectedProvider.id {
+                        Label(provider.id, systemImage: "checkmark")
+                    } else {
+                        Text(provider.id)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(selectedProvider.id)
+                    .font(.system(.subheadline, design: .rounded))
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+            }
+            .foregroundColor(.white.opacity(0.8))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
     // MARK: - Actions
 
     private func handleDrop(_ providers: [NSItemProvider]) async {
@@ -114,7 +141,21 @@ struct FileShareView: View {
     }
     
     private func handleClick() async {
-        await quickShare.showFilePicker(for: selectedProvider, from: hostView)
+        // Prefer acting on the current shelf contents: share the selected items if
+        // there's a selection, otherwise share everything on the shelf. Only fall
+        // back to the file picker when the shelf is empty.
+        let allItems = ShelfStateViewModel.shared.items
+        let selected = ShelfSelectionModel.shared.selectedItems(in: allItems)
+        let itemsToShare = selected.isEmpty ? allItems : selected
+
+        guard !itemsToShare.isEmpty else {
+            await quickShare.showFilePicker(for: selectedProvider, from: hostView)
+            return
+        }
+
+        isProcessing = true
+        defer { isProcessing = false }
+        await quickShare.shareShelfItems(itemsToShare, using: selectedProvider, from: hostView)
     }
 }
 
