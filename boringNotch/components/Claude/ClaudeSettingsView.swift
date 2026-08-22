@@ -2,25 +2,24 @@
 //  ClaudeSettingsView.swift
 //  boringNotch
 //
-//  Settings for the Claude chat tab — currently the Anthropic API key the
-//  in-notch chat uses.
+//  Settings for the Claude chat tab — the Anthropic API key the in-notch chat
+//  uses. Stored in the Keychain (see APIKeyStore), not app preferences.
 //
 
-import Defaults
 import SwiftUI
 
 struct ClaudeSettings: View {
-    @Default(.anthropicAPIKey) private var apiKey
+    @StateObject private var keyStore = APIKeyStore.shared
 
     var body: some View {
         Form {
             Section {
-                SecureField("sk-ant-…", text: $apiKey)
+                SecureField("sk-ant-…", text: $keyStore.apiKey)
                     .textFieldStyle(.roundedBorder)
                 HStack {
-                    Image(systemName: apiKey.hasPrefix("sk-ant-") ? "checkmark.circle.fill" : "info.circle")
-                        .foregroundStyle(apiKey.hasPrefix("sk-ant-") ? .green : .secondary)
-                    Text(apiKey.hasPrefix("sk-ant-") ? "Key saved." : "Paste an Anthropic API key to enable the Claude tab.")
+                    Image(systemName: keyStore.apiKey.hasPrefix("sk-ant-") ? "checkmark.circle.fill" : "info.circle")
+                        .foregroundStyle(keyStore.apiKey.hasPrefix("sk-ant-") ? .green : .secondary)
+                    Text(keyStore.apiKey.hasPrefix("sk-ant-") ? "Key saved to your Keychain." : "Paste an Anthropic API key to enable the Claude tab.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -34,7 +33,7 @@ struct ClaudeSettings: View {
                              destination: URL(string: "https://console.anthropic.com/settings/keys")!)
                             .foregroundColor(.blue)
                     }
-                    Text("The in-notch chat uses this key to talk to Claude (billed as API usage, separate from a Claude.ai subscription). The key is stored in your app preferences.")
+                    Text("The in-notch chat uses this key to talk to Claude (billed as API usage, separate from a Claude.ai subscription). The key is stored securely in your login Keychain, so it never ships with the app.")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

@@ -8,7 +8,6 @@
 //  open the notch is held open and made key so typing works.
 //
 
-import Defaults
 import SwiftUI
 
 extension Color {
@@ -17,9 +16,10 @@ extension Color {
 }
 
 struct ClaudeChatView: View {
+    @EnvironmentObject var vm: BoringViewModel
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @StateObject private var store = ClaudeChatStore.shared
-    @Default(.anthropicAPIKey) private var apiKey
+    @StateObject private var keyStore = APIKeyStore.shared
 
     @State private var draft: String = ""
     @FocusState private var inputFocused: Bool
@@ -27,7 +27,7 @@ struct ClaudeChatView: View {
     var body: some View {
         VStack(spacing: 6) {
             header
-            if apiKey.trimmingCharacters(in: .whitespaces).isEmpty {
+            if !keyStore.hasKey {
                 setupPrompt
             } else {
                 conversation
@@ -45,6 +45,33 @@ struct ClaudeChatView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { inputFocused = true }
         }
         .onDisappear { SharingStateManager.shared.endInteraction() }
+        // Click-off: when the user clicks another app, the notch loses focus —
+        // close it instead of waiting for a hover-out.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            closeOnClickOff()
+        }
+    }
+
+    private func closeOnClickOff() {
+        guard coordinator.currentView == .claude, vm.notchState == .open else { return }
+        SharingStateManager.shared.endInteraction()
+        coordinator.currentView = .home
+        vm.close()
+    }
+
+    private func exportToClaudeDesktop() {
+        let transcript = store.messages
+            .map { ($0.role == .user ? "Me: " : "Claude: ") + $0.text }
+            .joined(separator: "\n\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(transcript, forType: .string)
+
+        let workspace = NSWorkspace.shared
+        if let appURL = workspace.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop") {
+            workspace.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+        } else if let url = URL(string: "https://claude.ai/new") {
+            workspace.open(url)
+        }
     }
 
     // MARK: - Header
@@ -68,6 +95,14 @@ struct ClaudeChatView: View {
             }
             .buttonStyle(.plain)
             .help("New chat")
+            .disabled(store.isEmpty)
+
+            Button(action: exportToClaudeDesktop) {
+                Image(systemName: "arrow.up.forward.app")
+                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Copy this chat and open it in the Claude desktop app")
             .disabled(store.isEmpty)
 
             Button {
@@ -114,16 +149,11 @@ struct ClaudeChatView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 4) {
-            Text("Ask Claude anything")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white)
-            Text("Quick questions, right from the notch.")
-                .font(.system(size: 10))
-                .foregroundStyle(.gray)
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.top, 10)
+        Text("Ask Claude anything")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 10)
     }
 
     private func bubble(_ message: ChatMessage) -> some View {
@@ -211,29 +241,19 @@ struct ClaudeChatView: View {
 
 // MARK: - Claude logo mark
 
-/// A lightweight approximation of the Claude "sunburst" mark drawn as radiating
-/// spokes, so we don't need to ship the official asset.
+/// The Claude "sunburst" logo, tinted so it can render grey (idle) or Claude
+/// orange (active). Backed by the `claude-ai` template asset.
 struct ClaudeMark: View {
     var size: CGFloat
     var color: Color
 
     var body: some View {
-        Canvas { context, canvasSize in
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-            let radius = min(canvasSize.width, canvasSize.height) / 2
-            let spokes = 11
-            for i in 0..<spokes {
-                let angle = (Double(i) / Double(spokes)) * 2 * .pi
-                var path = Path()
-                path.move(to: center)
-                path.addLine(to: CGPoint(
-                    x: center.x + CGFloat(cos(angle)) * radius,
-                    y: center.y + CGFloat(sin(angle)) * radius
-                ))
-                context.stroke(path, with: .color(color), lineWidth: size * 0.13)
-            }
-        }
-        .frame(width: size, height: size)
+        Image("claude-ai")
+            .renderingMode(.template)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .foregroundStyle(color)
+            .frame(width: size, height: size)
     }
 }
 

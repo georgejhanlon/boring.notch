@@ -72,7 +72,7 @@ struct BoringHeader: View {
                                     .frame(width: 30, height: 30)
                                     .overlay {
                                         Image(systemName: "web.camera")
-                                            .foregroundColor(vm.isCameraExpanded ? .white : .gray)
+                                            .foregroundColor(vm.isCameraExpanded ? .green : .gray)
                                             .padding()
                                             .imageScale(.medium)
                                     }

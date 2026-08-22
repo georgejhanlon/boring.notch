@@ -7,7 +7,6 @@
 //  notch within a session.
 //
 
-import Defaults
 import Foundation
 
 @MainActor
@@ -19,10 +18,6 @@ final class ClaudeChatStore: ObservableObject {
     @Published var errorText: String?
 
     private init() {}
-
-    var hasAPIKey: Bool {
-        !Defaults[.anthropicAPIKey].trimmingCharacters(in: .whitespaces).isEmpty
-    }
 
     var isEmpty: Bool { messages.isEmpty }
 
@@ -44,7 +39,7 @@ final class ClaudeChatStore: ObservableObject {
         isStreaming = true
 
         let history = Array(messages[..<replyIndex])
-        let apiKey = Defaults[.anthropicAPIKey]
+        let apiKey = APIKeyStore.shared.apiKey
 
         Task {
             do {

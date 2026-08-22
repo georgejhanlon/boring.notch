@@ -24,15 +24,18 @@ struct EmailTriageView: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 0) {
             headerRow
             HStack(alignment: .center, spacing: 10) {
                 navButton(system: "arrow.left", enabled: store.canGoBack) { store.goBack() }
                 messageArea
                 navButton(system: "arrow.right", enabled: store.canGoForward) { store.goForward() }
             }
+            // A little breathing room above the card and above the action row —
+            // the notch has slack, so this doesn't change the tab's size.
+            .padding(.top, 9)
             actionRow
-                .padding(.top, 4)
+                .padding(.top, 12)
         }
         .padding(.horizontal, 14)
         .padding(.top, 2)
