@@ -82,9 +82,14 @@ struct BoringHeader: View {
                         if Defaults[.settingsIconInNotch] {
                             Button(action: {
                                 DispatchQueue.main.async {
-                                    SettingsWindowController.shared.showWindow()
+                                    // Toggle: close the settings window if it's
+                                    // already open, otherwise show it.
+                                    if settingsWindow.isOpen {
+                                        SettingsWindowController.shared.close()
+                                    } else {
+                                        SettingsWindowController.shared.showWindow()
+                                    }
                                 }
-                                
                             }) {
                                 Capsule()
                                     .fill(settingsWindow.isOpen ? Color(nsColor: .secondarySystemFill) : .black)
