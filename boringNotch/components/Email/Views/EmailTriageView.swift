@@ -28,7 +28,9 @@ struct EmailTriageView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .frame(width: openNotchSize.width)
+        // Fill the notch's already-inset content width rather than forcing the
+        // full window width, which would overflow and hide the rounded corners.
+        .frame(maxWidth: .infinity)
         .task { await store.loadInboxIfNeeded() }
     }
 
@@ -151,7 +153,7 @@ struct EmailTriageView: View {
         // Only the filled slots take part, so an all-empty configuration collapses
         // gracefully rather than leaving a row of gaps.
         let actions = actionSlots.filter { $0 != .none }
-        return HStack(spacing: 18) {
+        return HStack(spacing: 16) {
             ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
                 actionButton(action)
             }
@@ -163,18 +165,18 @@ struct EmailTriageView: View {
     @ViewBuilder
     private func actionButton(_ action: EmailActionButton) -> some View {
         roundButton(system: action.iconName, tint: action.tint, help: action.label) {
-            Task { await perform(action) }
+            perform(action)
         }
     }
 
-    private func perform(_ action: EmailActionButton) async {
+    private func perform(_ action: EmailActionButton) {
         switch action {
-        case .archive: await store.archive()
-        case .delete: await store.delete()
-        case .reply: await store.reply(all: false)
-        case .replyAll: await store.reply(all: true)
-        case .forward: await store.forward()
-        case .openInMail: await store.openInMail()
+        case .archive: store.archive()
+        case .delete: store.delete()
+        case .reply: store.reply(all: false)
+        case .replyAll: store.reply(all: true)
+        case .forward: store.forward()
+        case .openInMail: store.openInMail()
         case .none: break
         }
     }
@@ -182,11 +184,11 @@ struct EmailTriageView: View {
     private func roundButton(system: String, tint: Color, help: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(Circle().fill(tint))
-                .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(tint.opacity(0.9)))
+                .shadow(color: .black.opacity(0.18), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(.plain)
         .help(help)

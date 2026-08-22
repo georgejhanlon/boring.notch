@@ -92,45 +92,49 @@ final class EmailTriageStore: ObservableObject {
         if index > messages.count - 1 { index = max(0, messages.count - 1) }
     }
 
-    func archive() async {
-        guard let id = current?.id, !isBusy else { return }
-        await perform { try await MailService.shared.archive(id: id) } onSuccess: {
-            self.removeCurrentAndAdvance()
-        }
-    }
-
-    func delete() async {
-        guard let id = current?.id, !isBusy else { return }
-        await perform { try await MailService.shared.delete(id: id) } onSuccess: {
-            self.removeCurrentAndAdvance()
-        }
-    }
-
-    func reply(all: Bool) async {
-        guard let id = current?.id, !isBusy else { return }
-        await perform { try await MailService.shared.reply(id: id, all: all) } onSuccess: {}
-    }
-
-    func forward() async {
-        guard let id = current?.id, !isBusy else { return }
-        await perform { try await MailService.shared.forward(id: id) } onSuccess: {}
-    }
-
-    func openInMail() async {
+    /// Archive/delete advance the UI immediately and run the Mail operation in the
+    /// background, so triaging feels instant. On failure we re-fetch the inbox so
+    /// the list reflects Mail's real state again.
+    func archive() {
         guard let id = current?.id else { return }
-        try? await MailService.shared.openInMail(id: id)
+        removeCurrentAndAdvance()
+        Task { await loadBody() }
+        runInBackground { try await MailService.shared.archive(id: id) }
     }
 
-    private func perform(_ work: () async throws -> Void, onSuccess: () -> Void) async {
-        isBusy = true
+    func delete() {
+        guard let id = current?.id else { return }
+        removeCurrentAndAdvance()
+        Task { await loadBody() }
+        runInBackground { try await MailService.shared.delete(id: id) }
+    }
+
+    /// Hand-offs to Mail leave the message in place; fire and forget so the button
+    /// responds without waiting on Mail to open its composer.
+    func reply(all: Bool) {
+        guard let id = current?.id else { return }
+        runInBackground { try await MailService.shared.reply(id: id, all: all) }
+    }
+
+    func forward() {
+        guard let id = current?.id else { return }
+        runInBackground { try await MailService.shared.forward(id: id) }
+    }
+
+    func openInMail() {
+        guard let id = current?.id else { return }
+        runInBackground { try await MailService.shared.openInMail(id: id) }
+    }
+
+    private func runInBackground(_ work: @escaping () async throws -> Void) {
         errorText = nil
-        defer { isBusy = false }
-        do {
-            try await work()
-            onSuccess()
-            await loadBody()
-        } catch {
-            errorText = error.localizedDescription
+        Task {
+            do {
+                try await work()
+            } catch {
+                errorText = error.localizedDescription
+                await reload()
+            }
         }
     }
 }
