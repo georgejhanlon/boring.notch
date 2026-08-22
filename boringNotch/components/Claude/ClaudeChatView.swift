@@ -21,6 +21,9 @@ extension Color {
 final class ClaudeSession: ObservableObject {
     static let shared = ClaudeSession()
     @Published var currentURL: URL?
+    /// When true the notch is held open (via SharingStateManager) so you can chat
+    /// without it auto-closing on mouse-out.
+    @Published var isPinned = false
     private init() {}
 
     /// A concrete conversation URL (claude.ai/chat/…) we can open elsewhere;
@@ -61,6 +64,13 @@ struct ClaudeChatView: View {
         // Grow the hosting window to fit the taller chat, and restore it when the
         // view goes away (switching tab / closing the notch).
         .background(NotchWindowHeightResizer(height: claudeWindowSize.height))
+        .onDisappear {
+            // Release the pin so leaving the tab never leaves the notch stuck open.
+            if session.isPinned {
+                session.isPinned = false
+                SharingStateManager.shared.endInteraction()
+            }
+        }
     }
 
     private var header: some View {
@@ -69,6 +79,22 @@ struct ClaudeChatView: View {
             Text("Claude")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
+            Button {
+                session.isPinned.toggle()
+                if session.isPinned {
+                    SharingStateManager.shared.beginInteraction()
+                } else {
+                    SharingStateManager.shared.endInteraction()
+                }
+            } label: {
+                Image(systemName: session.isPinned ? "pin.fill" : "pin")
+                    .imageScale(.small)
+                    .foregroundStyle(session.isPinned ? Color.claudeOrange : .gray)
+                    .rotationEffect(.degrees(session.isPinned ? 0 : 45))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(session.isPinned ? "Unpin — let the notch close on its own" : "Pin the notch open while chatting")
             Spacer()
             Button {
                 session.exportToDesktop()
