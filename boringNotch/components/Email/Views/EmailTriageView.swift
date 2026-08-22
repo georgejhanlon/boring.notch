@@ -17,7 +17,7 @@ struct EmailTriageView: View {
     @Default(.emailActionSlots) private var actionSlots
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             headerRow
             HStack(alignment: .center, spacing: 10) {
                 navButton(system: "arrow.left", enabled: store.canGoBack) { store.goBack() }
@@ -27,7 +27,8 @@ struct EmailTriageView: View {
             actionRow
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
         // Fill the notch's already-inset content width rather than forcing the
         // full window width, which would overflow and hide the rounded corners.
         .frame(maxWidth: .infinity)
@@ -87,7 +88,7 @@ struct EmailTriageView: View {
         Button {
             Task { await store.openInMail() }
         } label: {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(message.senderName)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.black)
@@ -99,12 +100,12 @@ struct EmailTriageView: View {
                 Text(store.body.isEmpty ? "…" : store.body)
                     .font(.system(size: 11))
                     .foregroundStyle(.gray)
-                    .lineLimit(3)
+                    .lineLimit(2)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(10)
+            .padding(8)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white))
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }

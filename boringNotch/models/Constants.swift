@@ -136,7 +136,7 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
     var localizedString: String {
         switch self {
         case .nowPlaying:
-            return NSLocalizedString("Now Playing", comment: "")
+            return NSLocalizedString("Universal (Auto-Detect)", comment: "")
         case .appleMusic:
             return "Apple Music"
         case .spotify:
@@ -145,6 +145,23 @@ enum MediaControllerType: String, CaseIterable, Identifiable, Defaults.Serializa
             return "YouTube Music"
         }
     }
+
+    /// One-line explanation shown beneath the source picker.
+    var sourceDescription: String {
+        switch self {
+        case .nowPlaying:
+            return "Follows whatever is currently playing — Apple Music, Spotify, or video in a browser like Netflix or YouTube."
+        case .appleMusic:
+            return "Only tracks Apple Music."
+        case .spotify:
+            return "Only tracks Spotify."
+        case .youtubeMusic:
+            return "Only tracks the YouTube Music desktop app."
+        }
+    }
+
+    /// Whether this source auto-detects any app rather than a single one.
+    var isUniversal: Bool { self == .nowPlaying }
 }
 
 // Sneak peek styles for selection in settings

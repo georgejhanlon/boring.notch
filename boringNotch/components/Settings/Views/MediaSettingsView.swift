@@ -21,7 +21,7 @@ struct Media: View {
     var body: some View {
         Form {
             Section {
-                Picker("Music Source", selection: $mediaController) {
+                Picker("Detection", selection: $mediaController) {
                     ForEach(availableMediaControllers) { controller in
                         Text(controller.localizedString).tag(controller)
                     }
@@ -32,24 +32,35 @@ struct Media: View {
                         object: nil
                     )
                 }
+
+                // Live explanation of the selected mode.
+                Label {
+                    Text(mediaController.sourceDescription)
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                } icon: {
+                    Image(systemName: mediaController.isUniversal ? "sparkles" : "app.badge")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 2)
             } header: {
                 Text("Media Source")
             } footer: {
                 if MusicManager.shared.isNowPlayingDeprecated {
-                    HStack {
-                        Text("YouTube Music requires this third-party app to be installed: ")
+                    HStack(spacing: 4) {
+                        Text("Universal detection isn't available on this macOS version. YouTube Music requires this third-party app:")
                             .foregroundStyle(.secondary)
                             .font(.caption)
                         Link(
-                            "https://github.com/pear-devs/pear-desktop",
+                            "pear-desktop",
                             destination: URL(string: "https://github.com/pear-devs/pear-desktop")!
                         )
                         .font(.caption)
-                        .foregroundColor(.blue)  // Ensures it's visibly a link
+                        .foregroundColor(.blue)
                     }
                 } else {
                     Text(
-                        "'Now Playing' was the only option on previous versions and works with all media apps."
+                        "Choose **Universal** to follow whatever is playing across apps and browser video, or pick a single app to track only that one."
                     )
                     .foregroundStyle(.secondary)
                     .font(.caption)
