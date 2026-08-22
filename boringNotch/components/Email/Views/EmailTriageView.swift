@@ -16,8 +16,15 @@ struct EmailTriageView: View {
     @StateObject private var store = EmailTriageStore.shared
     @Default(.emailActionSlots) private var actionSlots
 
+    /// The two-line body blurb, falling back to a loading hint while Mail is
+    /// still returning the message content.
+    private var previewText: String {
+        if !store.body.isEmpty { return store.body }
+        return (store.isBodyLoading || store.isLoading) ? "Loading preview…" : "No preview available"
+    }
+
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             headerRow
             HStack(alignment: .center, spacing: 10) {
                 navButton(system: "arrow.left", enabled: store.canGoBack) { store.goBack() }
@@ -25,10 +32,11 @@ struct EmailTriageView: View {
                 navButton(system: "arrow.right", enabled: store.canGoForward) { store.goForward() }
             }
             actionRow
+                .padding(.top, 6)
         }
         .padding(.horizontal, 14)
-        .padding(.top, 2)
-        .padding(.bottom, 6)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
         // Fill the notch's already-inset content width rather than forcing the
         // full window width, which would overflow and hide the rounded corners.
         .frame(maxWidth: .infinity)
@@ -85,7 +93,7 @@ struct EmailTriageView: View {
         // makes the notch settle to one size, so it never breathes as the body
         // text loads in.
         .frame(maxWidth: .infinity)
-        .frame(height: 82)
+        .frame(height: 78)
     }
 
     private func messageCard(_ message: MailMessage) -> some View {
@@ -101,10 +109,10 @@ struct EmailTriageView: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.black)
                     .lineLimit(1)
-                Text(store.body.isEmpty ? "…" : store.body)
+                Text(previewText)
                     .font(.system(size: 11))
                     .foregroundStyle(.gray)
-                    .lineLimit(3)
+                    .lineLimit(2, reservesSpace: true)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }

@@ -17,6 +17,7 @@ final class EmailTriageStore: ObservableObject {
     @Published private(set) var index: Int = 0
     @Published private(set) var body: String = ""
     @Published private(set) var isLoading = false
+    @Published private(set) var isBodyLoading = false
     @Published private(set) var isBusy = false
     @Published var errorText: String?
 
@@ -56,17 +57,21 @@ final class EmailTriageStore: ObservableObject {
     }
 
     private func loadBody() async {
-        guard let id = current?.id else { body = ""; return }
+        guard let id = current?.id else { body = ""; isBodyLoading = false; return }
         bodyToken += 1
         let token = bodyToken
+        body = ""
+        isBodyLoading = true
         do {
             let text = try await MailService.shared.content(for: id)
             // Ignore if the cursor moved while we were fetching.
             guard token == bodyToken else { return }
             body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            isBodyLoading = false
         } catch {
             guard token == bodyToken else { return }
             body = ""
+            isBodyLoading = false
         }
     }
 

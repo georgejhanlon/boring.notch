@@ -10,6 +10,14 @@ import SwiftUI
 import Defaults
 import Sparkle
 
+/// Observable open/closed state for the settings window, so notch UI (e.g. the
+/// gear button) can reflect whether the settings page is showing.
+final class SettingsWindowState: ObservableObject {
+    static let shared = SettingsWindowState()
+    @Published var isOpen = false
+    private init() {}
+}
+
 class SettingsWindowController: NSWindowController {
     static let shared = SettingsWindowController()
     private var updaterController: SPUStandardUpdaterController?
@@ -67,6 +75,8 @@ class SettingsWindowController: NSWindowController {
     }
     
     func showWindow() {
+        SettingsWindowState.shared.isOpen = true
+
         // Set app to regular mode first
         NSApp.setActivationPolicy(.regular)
         
@@ -98,6 +108,7 @@ class SettingsWindowController: NSWindowController {
     }
     
     private func relinquishFocus() {
+        SettingsWindowState.shared.isOpen = false
         window?.orderOut(nil)
         
         // Set app back to accessory mode immediately
