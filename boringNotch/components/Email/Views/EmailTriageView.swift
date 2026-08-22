@@ -81,7 +81,11 @@ struct EmailTriageView: View {
                 infoCard(title: "Inbox zero", detail: "Nothing left to triage.", systemImage: "tray")
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // A stable height keeps the sender / subject / preview blurb visible and
+        // makes the notch settle to one size, so it never breathes as the body
+        // text loads in.
+        .frame(maxWidth: .infinity)
+        .frame(height: 82)
     }
 
     private func messageCard(_ message: MailMessage) -> some View {
@@ -100,12 +104,12 @@ struct EmailTriageView: View {
                 Text(store.body.isEmpty ? "…" : store.body)
                     .font(.system(size: 11))
                     .foregroundStyle(.gray)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(8)
+            .padding(10)
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(.white))
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
