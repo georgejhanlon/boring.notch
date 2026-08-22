@@ -59,19 +59,46 @@ struct ClaudeChatView: View {
         vm.close()
     }
 
+    /// Hands the conversation off to the Claude desktop app. There's no public
+    /// deep link to create a pre-filled chat, so we copy the transcript, open a
+    /// new chat in the app, then best-effort paste it into the input (Cmd+V) —
+    /// leaving it for the user to send. If auto-paste can't fire (accessibility
+    /// permission), the transcript is still on the clipboard to paste manually.
     private func exportToClaudeDesktop() {
-        let transcript = store.messages
+        guard !store.isEmpty else { return }
+
+        let header = "Continuing a conversation started in the notch:\n"
+        let transcript = header + store.messages
             .map { ($0.role == .user ? "Me: " : "Claude: ") + $0.text }
             .joined(separator: "\n\n")
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(transcript, forType: .string)
 
         let workspace = NSWorkspace.shared
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = true
+
         if let appURL = workspace.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop") {
-            workspace.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+            workspace.openApplication(at: appURL, configuration: config) { _, _ in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { Self.pasteIntoFrontmostApp() }
+            }
         } else if let url = URL(string: "https://claude.ai/new") {
             workspace.open(url)
         }
+    }
+
+    /// Synthesizes a ⌘V into whichever app is frontmost (the Claude app after we
+    /// activate it). Requires Accessibility permission; a no-op without it.
+    private static func pasteIntoFrontmostApp() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let vKey: CGKeyCode = 0x09 // "V"
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false)
+        else { return }
+        down.flags = .maskCommand
+        up.flags = .maskCommand
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
     }
 
     // MARK: - Header
@@ -82,6 +109,15 @@ struct ClaudeChatView: View {
             Text("Claude")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
+
+            Button(action: exportToClaudeDesktop) {
+                Image(systemName: "arrow.up.forward.app")
+                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Open this chat in the Claude desktop app")
+            .disabled(store.isEmpty)
+
             if store.isStreaming {
                 ProgressView().controlSize(.small).progressViewStyle(.circular)
             }
@@ -95,14 +131,6 @@ struct ClaudeChatView: View {
             }
             .buttonStyle(.plain)
             .help("New chat")
-            .disabled(store.isEmpty)
-
-            Button(action: exportToClaudeDesktop) {
-                Image(systemName: "arrow.up.forward.app")
-                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Copy this chat and open it in the Claude desktop app")
             .disabled(store.isEmpty)
 
             Button {
