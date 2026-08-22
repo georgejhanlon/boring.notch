@@ -51,14 +51,49 @@ struct AnthropicService {
         apiKey: String,
         onDelta: @escaping @MainActor (String) -> Void
     ) async throws {
+        let messages = history.map { ["role": $0.role.rawValue, "content": $0.text] }
+        try await run(system: systemPrompt, messages: messages, apiKey: apiKey, onDelta: onDelta)
+    }
+
+    /// Streams a concise summary of some captured text and/or an image.
+    func streamSummary(
+        text: String?,
+        imageBase64: String?,
+        apiKey: String,
+        onDelta: @escaping @MainActor (String) -> Void
+    ) async throws {
+        var content: [[String: Any]] = []
+        if let imageBase64 {
+            content.append([
+                "type": "image",
+                "source": ["type": "base64", "media_type": "image/png", "data": imageBase64],
+            ])
+        }
+        let instruction = (text?.isEmpty == false)
+            ? "Summarise this in a couple of short, digestible lines:\n\n\(text!)"
+            : "Summarise this image in a couple of short, digestible lines."
+        content.append(["type": "text", "text": instruction])
+
+        let system = "You are a summariser. Reply with 1–3 short, plain lines — the gist only, no preamble, no headings."
+        try await run(system: system, messages: [["role": "user", "content": content]], apiKey: apiKey, onDelta: onDelta)
+    }
+
+    // MARK: - Shared streaming request
+
+    private func run(
+        system: String,
+        messages: [[String: Any]],
+        apiKey: String,
+        onDelta: @escaping @MainActor (String) -> Void
+    ) async throws {
         guard !apiKey.trimmingCharacters(in: .whitespaces).isEmpty else { throw AnthropicError.missingKey }
 
         let payload: [String: Any] = [
             "model": model,
             "max_tokens": 2048,
             "stream": true,
-            "system": systemPrompt,
-            "messages": history.map { ["role": $0.role.rawValue, "content": $0.text] },
+            "system": system,
+            "messages": messages,
         ]
 
         var request = URLRequest(url: endpoint)

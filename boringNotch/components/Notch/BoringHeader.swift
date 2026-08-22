@@ -49,6 +49,25 @@ struct BoringHeader: View {
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
                         Button(action: {
+                            // Grab the current selection first (notch is
+                            // non-activating, so the user's app stays frontmost),
+                            // then show the summary panel.
+                            SummariseStore.shared.capture()
+                            withAnimation(.smooth) { coordinator.currentView = .summarise }
+                        }) {
+                            Capsule()
+                                .fill(coordinator.currentView == .summarise ? Color(nsColor: .secondarySystemFill) : .black)
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    Image(systemName: "sparkles")
+                                        .foregroundColor(coordinator.currentView == .summarise ? .claudeOrange : .gray)
+                                        .imageScale(.medium)
+                                }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .help("Summarise selection")
+
+                        Button(action: {
                             withAnimation(.smooth) {
                                 coordinator.currentView = coordinator.currentView == .claude ? .home : .claude
                             }

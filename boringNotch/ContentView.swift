@@ -455,6 +455,12 @@ struct ContentView: View {
                         ChecklistView(isHovering: $isHoveringChecklist)
                     case .claude:
                         ClaudeChatView()
+                    case .clipboard:
+                        ClipboardView()
+                    case .timer:
+                        TimerView()
+                    case .summarise:
+                        SummariseView()
                     }
                 }
                 .transition(

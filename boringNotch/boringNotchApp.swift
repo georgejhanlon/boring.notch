@@ -313,6 +313,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
 
+        // Begin watching the pasteboard for the Clipboard history tab.
+        ClipboardManager.shared.start()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screenConfigurationDidChange),

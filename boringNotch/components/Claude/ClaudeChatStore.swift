@@ -26,6 +26,12 @@ final class ClaudeChatStore: ObservableObject {
         errorText = nil
     }
 
+    /// Starts a fresh conversation seeded with some context (e.g. from Summarise).
+    func startChat(with context: String) {
+        clear()
+        send(context)
+    }
+
     func send(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isStreaming else { return }
