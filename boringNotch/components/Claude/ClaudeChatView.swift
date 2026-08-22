@@ -16,8 +16,37 @@ extension Color {
     static let claudeOrange = Color(red: 0xD9 / 255, green: 0x77 / 255, blue: 0x57 / 255)
 }
 
+/// Tracks the live state of the embedded chat (the URL currently shown) so the
+/// header can offer to hand the conversation off to the Claude desktop app.
+final class ClaudeSession: ObservableObject {
+    static let shared = ClaudeSession()
+    @Published var currentURL: URL?
+    private init() {}
+
+    /// A concrete conversation URL (claude.ai/chat/…) we can open elsewhere;
+    /// nil while on the "new chat" landing page.
+    var conversationURL: URL? {
+        guard let url = currentURL, url.path.contains("/chat/") else { return nil }
+        return url
+    }
+
+    /// Opens the current conversation in the Claude desktop app, falling back to
+    /// the default handler (browser) if the app isn't installed.
+    func exportToDesktop() {
+        guard let url = conversationURL ?? currentURL else { return }
+        let workspace = NSWorkspace.shared
+        let config = NSWorkspace.OpenConfiguration()
+        if let appURL = workspace.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop") {
+            workspace.open([url], withApplicationAt: appURL, configuration: config)
+        } else {
+            workspace.open(url)
+        }
+    }
+}
+
 struct ClaudeChatView: View {
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
+    @ObservedObject private var session = ClaudeSession.shared
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,6 +70,18 @@ struct ClaudeChatView: View {
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
             Spacer()
+            Button {
+                session.exportToDesktop()
+            } label: {
+                Image(systemName: "arrow.up.forward.app")
+                    .imageScale(.small)
+                    .foregroundStyle(session.conversationURL != nil ? Color.claudeOrange : .gray)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(session.conversationURL == nil)
+            .help("Open this chat in the Claude desktop app")
+
             Button {
                 NotificationCenter.default.post(name: .claudeReload, object: nil)
             } label: {
@@ -130,6 +171,7 @@ struct ClaudeWebView: NSViewRepresentable {
         static let homeURL = URL(string: "https://claude.ai/new")!
 
         private var reloadObserver: NSObjectProtocol?
+        private var urlObservation: NSKeyValueObservation?
 
         func observe(_ webView: WKWebView) {
             reloadObserver = NotificationCenter.default.addObserver(
@@ -137,10 +179,19 @@ struct ClaudeWebView: NSViewRepresentable {
             ) { [weak webView] _ in
                 webView?.reload()
             }
+            // claude.ai is a single-page app: the conversation URL changes via
+            // client-side routing, so observe `url` (KVO-compliant) directly
+            // rather than relying on navigation-delegate callbacks.
+            urlObservation = webView.observe(\.url, options: [.initial, .new]) { webView, _ in
+                DispatchQueue.main.async {
+                    ClaudeSession.shared.currentURL = webView.url
+                }
+            }
         }
 
         deinit {
             if let reloadObserver { NotificationCenter.default.removeObserver(reloadObserver) }
+            urlObservation?.invalidate()
         }
 
         // Load target=_blank / OAuth popups (e.g. Google sign-in) in the same view.
