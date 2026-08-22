@@ -276,6 +276,12 @@ extension Defaults.Keys {
         "musicControlSlotLimit",
         default: MusicControlButton.defaultLayout.count
     )
+
+    // MARK: Email
+    static let emailActionSlots = Key<[EmailActionButton]>(
+        "emailActionSlots",
+        default: EmailActionButton.defaultLayout
+    )
     
     // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)
