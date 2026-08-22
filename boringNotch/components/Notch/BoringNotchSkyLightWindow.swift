@@ -146,6 +146,11 @@ class BoringNotchSkyLightWindow: NSPanel {
         }
     }
     
-    override var canBecomeKey: Bool { false }
+    /// The notch floats without stealing focus, so it normally refuses to become
+    /// the key window. In-notch text entry (e.g. adding a custom checklist item)
+    /// flips this on for the duration of editing, then restores it.
+    var isKeyEnabled = false
+
+    override var canBecomeKey: Bool { isKeyEnabled }
     override var canBecomeMain: Bool { false }
 }

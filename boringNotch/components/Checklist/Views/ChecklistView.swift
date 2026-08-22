@@ -9,6 +9,7 @@
 //
 
 import SwiftUI
+import AppKit
 import Defaults
 
 struct ChecklistView: View {
@@ -31,6 +32,9 @@ struct ChecklistView: View {
     @State private var expanded = true
     @State private var showRecent = false
     @State private var showCompletedSection = false
+    @State private var isAddingItem = false
+    @State private var newItemText = ""
+    @FocusState private var addFieldFocused: Bool
 
     private let spacing: CGFloat = 8
 
@@ -57,13 +61,21 @@ struct ChecklistView: View {
             .contentShape(Rectangle())
     }
 
-    @ViewBuilder
     private var content: some View {
-        if store.isEmpty {
-            emptyState
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            if store.isEmpty {
+                emptyHeader
+            } else {
                 header
+            }
+
+            // Kept outside the empty/loaded branch so its identity — and the
+            // keyboard focus — survives adding the first item to an empty list.
+            if isAddingItem {
+                addItemField
+            }
+
+            if !store.isEmpty {
                 if showRecent {
                     recentList
                 }
@@ -74,10 +86,13 @@ struct ChecklistView: View {
                     }
                 }
             }
-            .animation(.smooth, value: expanded)
-            .animation(.smooth, value: showRecent)
-            .animation(.smooth, value: showCompletedSection)
         }
+        .background(NotchKeyFocusEnabler(isEditing: isAddingItem))
+        .animation(.smooth, value: expanded)
+        .animation(.smooth, value: showRecent)
+        .animation(.smooth, value: showCompletedSection)
+        .animation(.smooth, value: isAddingItem)
+        .animation(.smooth, value: store.isEmpty)
     }
 
     // MARK: - Header (arrow left, name, recent top-right)
@@ -116,6 +131,18 @@ struct ChecklistView: View {
                 HoldToDeleteButton {
                     withAnimation(.smooth) { store.clearCurrent() }
                 }
+
+                // Small add button beside the bin — append a custom item by hand.
+                Button {
+                    startAdding()
+                } label: {
+                    Image(systemName: "plus")
+                        .imageScale(.small)
+                        .foregroundStyle(isAddingItem ? Color.accentColor : .gray)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Add a checklist item")
             }
 
             Spacer(minLength: 8)
@@ -269,17 +296,113 @@ struct ChecklistView: View {
         return relativeFormatter.localizedString(for: date, relativeTo: Date())
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "checklist")
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(.white, .gray)
-                .imageScale(.large)
+    // MARK: - Empty state (left-aligned custom-checklist affordance)
+
+    private var emptyHeader: some View {
+        HStack(spacing: 10) {
+            // Left: start a checklist by hand, no external (Claude) file needed.
+            Button {
+                startAdding()
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(Color.accentColor)
+                        .imageScale(.large)
+                    Text("Custom checklist")
+                        .foregroundStyle(.white)
+                        .font(.system(.headline, design: .rounded))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Start a checklist by hand")
+
+            Spacer(minLength: 8)
+
             Text("No checklist")
                 .foregroundStyle(.gray)
-                .font(.system(.title3, design: .rounded))
-                .fontWeight(.medium)
+                .font(.system(.subheadline, design: .rounded))
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Add-item field
+
+    private var addItemField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(Color.accentColor)
+                .imageScale(.large)
+            TextField("Add item…", text: $newItemText)
+                .textFieldStyle(.plain)
+                .font(.system(.body, design: .rounded))
+                .foregroundStyle(.white)
+                .focused($addFieldFocused)
+                .onSubmit { commitNewItem() }
+            Button {
+                stopAdding()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.gray)
+                    .imageScale(.small)
+            }
+            .buttonStyle(.plain)
+            .help("Done adding")
+        }
+        .contentShape(Rectangle())
+    }
+
+    private func startAdding() {
+        withAnimation(.smooth) { isAddingItem = true }
+        // Defer focus one runloop tick so the field (and key window) exist.
+        DispatchQueue.main.async { addFieldFocused = true }
+    }
+
+    private func commitNewItem() {
+        let text = newItemText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else {
+            stopAdding()
+            return
+        }
+        withAnimation(.smooth) { store.addItem(text) }
+        newItemText = ""
+        // Keep the field up and focused for rapid multi-item entry.
+        addFieldFocused = true
+    }
+
+    private func stopAdding() {
+        newItemText = ""
+        addFieldFocused = false
+        withAnimation(.smooth) { isAddingItem = false }
+    }
+}
+
+// MARK: - Temporarily let the notch window take keyboard focus while editing
+
+/// The notch's SkyLight window refuses key status so it never steals focus.
+/// While the add field is active we flip that on and make the window key so the
+/// `TextField` can receive typing, restoring the default when editing ends.
+private struct NotchKeyFocusEnabler: NSViewRepresentable {
+    var isEditing: Bool
+
+    func makeNSView(context: Context) -> NSView { NSView(frame: .zero) }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = nsView.window as? BoringNotchSkyLightWindow else { return }
+            if isEditing {
+                if !window.isKeyEnabled {
+                    window.isKeyEnabled = true
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKey()
+                }
+            } else if window.isKeyEnabled {
+                window.isKeyEnabled = false
+                window.resignKey()
+            }
+        }
     }
 }

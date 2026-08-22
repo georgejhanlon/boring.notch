@@ -61,6 +61,16 @@ final class ChecklistStore: ObservableObject {
         }
     }
 
+    /// Appends a hand-entered item to the current checklist and persists it.
+    /// Adding the first item to an empty checklist is how a custom checklist is
+    /// started without an external (Claude-authored) `current.json`.
+    func addItem(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        checklist.items.append(ChecklistItem(text: trimmed))
+        persist()
+    }
+
     func reload() {
         checklist = persistence.load()
     }
