@@ -434,11 +434,11 @@ jobs:
               system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", app_path]
             end
 
-            uninstall quit: "theboringteam.boringnotch"
+            uninstall quit: "com.notchpro.app"
 
             zap trash: [
-              "~/Library/Application Scripts/theboringteam.boringnotch/",
-              "~/Library/Containers/theboringteam.boringnotch/",
+              "~/Library/Application Scripts/com.notchpro.app/",
+              "~/Library/Containers/com.notchpro.app/",
             ]
           end
           CASK
