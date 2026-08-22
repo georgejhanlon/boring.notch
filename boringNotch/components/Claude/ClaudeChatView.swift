@@ -2,76 +2,52 @@
 //  ClaudeChatView.swift
 //  boringNotch
 //
-//  A "light" Claude chat embedded in the notch. It loads claude.ai in a
-//  WKWebView using a persistent session, so it signs in with the user's normal
-//  Claude login (no API key) and stays logged in between launches. Selecting the
-//  Claude tab expands the notch into a taller panel to give the chat room.
+//  A native, custom chat interface for Claude that lives inside the notch. Talks
+//  to the Anthropic Messages API (key configured in Settings › Claude) and
+//  renders a compact bubble conversation with an input field. While the tab is
+//  open the notch is held open and made key so typing works.
 //
 
+import Defaults
 import SwiftUI
-import WebKit
 
 extension Color {
-    /// Claude's brand coral/orange, used for the active tab tint.
+    /// Claude's brand coral/orange, used for the active tab tint and user bubbles.
     static let claudeOrange = Color(red: 0xD9 / 255, green: 0x77 / 255, blue: 0x57 / 255)
-}
-
-/// Tracks the live state of the embedded chat (the URL currently shown) so the
-/// header can offer to hand the conversation off to the Claude desktop app.
-final class ClaudeSession: ObservableObject {
-    static let shared = ClaudeSession()
-    @Published var currentURL: URL?
-    /// When true the notch is held open (via SharingStateManager) so you can chat
-    /// without it auto-closing on mouse-out.
-    @Published var isPinned = false
-    private init() {}
-
-    /// A concrete conversation URL (claude.ai/chat/…) we can open elsewhere;
-    /// nil while on the "new chat" landing page.
-    var conversationURL: URL? {
-        guard let url = currentURL, url.path.contains("/chat/") else { return nil }
-        return url
-    }
-
-    /// Opens the current conversation in the Claude desktop app, falling back to
-    /// the default handler (browser) if the app isn't installed.
-    func exportToDesktop() {
-        guard let url = conversationURL ?? currentURL else { return }
-        let workspace = NSWorkspace.shared
-        let config = NSWorkspace.OpenConfiguration()
-        if let appURL = workspace.urlForApplication(withBundleIdentifier: "com.anthropic.claudefordesktop") {
-            workspace.open([url], withApplicationAt: appURL, configuration: config)
-        } else {
-            workspace.open(url)
-        }
-    }
 }
 
 struct ClaudeChatView: View {
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
-    @ObservedObject private var session = ClaudeSession.shared
+    @StateObject private var store = ClaudeChatStore.shared
+    @Default(.anthropicAPIKey) private var apiKey
+
+    @State private var draft: String = ""
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 6) {
             header
-            ClaudeWebView()
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            if apiKey.trimmingCharacters(in: .whitespaces).isEmpty {
+                setupPrompt
+            } else {
+                conversation
+                inputBar
+            }
         }
         .padding(.horizontal, 14)
         .padding(.top, 2)
-        .padding(.bottom, 10)
-        .frame(width: claudeNotchSize.width)
-        // Grow the hosting window to fit the taller chat, and restore it when the
-        // view goes away (switching tab / closing the notch).
-        .background(NotchWindowHeightResizer(height: claudeWindowSize.height))
-        .onDisappear {
-            // Release the pin so leaving the tab never leaves the notch stuck open.
-            if session.isPinned {
-                session.isPinned = false
-                SharingStateManager.shared.endInteraction()
-            }
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Keep the notch open and key so the field can receive typing.
+        .background(NotchKeyFocusEnabler(isEditing: true))
+        .onAppear {
+            SharingStateManager.shared.beginInteraction()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { inputFocused = true }
         }
+        .onDisappear { SharingStateManager.shared.endInteraction() }
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -79,70 +55,164 @@ struct ClaudeChatView: View {
             Text("Claude")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
-            Button {
-                session.isPinned.toggle()
-                if session.isPinned {
-                    SharingStateManager.shared.beginInteraction()
-                } else {
-                    SharingStateManager.shared.endInteraction()
-                }
-            } label: {
-                Image(systemName: session.isPinned ? "pin.fill" : "pin")
-                    .imageScale(.small)
-                    .foregroundStyle(session.isPinned ? Color.claudeOrange : .gray)
-                    .rotationEffect(.degrees(session.isPinned ? 0 : 45))
-                    .contentShape(Rectangle())
+            if store.isStreaming {
+                ProgressView().controlSize(.small).progressViewStyle(.circular)
             }
-            .buttonStyle(.plain)
-            .help(session.isPinned ? "Unpin — let the notch close on its own" : "Pin the notch open while chatting")
             Spacer()
             Button {
-                session.exportToDesktop()
+                store.clear()
+                inputFocused = true
             } label: {
-                Image(systemName: "arrow.up.forward.app")
-                    .imageScale(.small)
-                    .foregroundStyle(session.conversationURL != nil ? Color.claudeOrange : .gray)
-                    .contentShape(Rectangle())
+                Image(systemName: "square.and.pencil")
+                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .disabled(session.conversationURL == nil)
-            .help("Open this chat in the Claude desktop app")
-
-            Button {
-                NotificationCenter.default.post(name: .claudeReload, object: nil)
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .imageScale(.small)
-                    .foregroundStyle(.gray)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Reload chat")
+            .help("New chat")
+            .disabled(store.isEmpty)
 
             Button {
                 withAnimation(.smooth) { coordinator.currentView = .home }
             } label: {
                 Image(systemName: "xmark")
-                    .imageScale(.small)
-                    .foregroundStyle(.gray)
-                    .contentShape(Rectangle())
+                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Close Claude")
         }
-        .padding(.bottom, 6)
     }
-}
 
-extension Notification.Name {
-    static let claudeReload = Notification.Name("claudeReload")
+    // MARK: - Conversation
+
+    private var conversation: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    if store.isEmpty {
+                        emptyState
+                    }
+                    ForEach(store.messages) { message in
+                        bubble(message).id(message.id)
+                    }
+                    if let error = store.errorText {
+                        Text(error)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Color.clear.frame(height: 1).id("bottom")
+                }
+                .padding(.vertical, 2)
+            }
+            .onChange(of: store.messages.last?.text) { _, _ in
+                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+            .onChange(of: store.messages.count) { _, _ in
+                withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 4) {
+            Text("Ask Claude anything")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Quick questions, right from the notch.")
+                .font(.system(size: 10))
+                .foregroundStyle(.gray)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.top, 10)
+    }
+
+    private func bubble(_ message: ChatMessage) -> some View {
+        let isUser = message.role == .user
+        return HStack {
+            if isUser { Spacer(minLength: 24) }
+            Text(message.text.isEmpty ? "…" : message.text)
+                .font(.system(size: 11))
+                .foregroundStyle(isUser ? .white : Color(white: 0.92))
+                .textSelection(.enabled)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(isUser ? Color.claudeOrange.opacity(0.85) : Color.white.opacity(0.10))
+                )
+            if !isUser { Spacer(minLength: 24) }
+        }
+    }
+
+    // MARK: - Input
+
+    private var inputBar: some View {
+        HStack(spacing: 8) {
+            TextField("Message Claude…", text: $draft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(.white)
+                .lineLimit(1...3)
+                .focused($inputFocused)
+                .onSubmit(send)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                )
+
+            Button(action: send) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(canSend ? Color.claudeOrange : Color.gray.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+        }
+    }
+
+    private var canSend: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !store.isStreaming
+    }
+
+    private func send() {
+        guard canSend else { return }
+        store.send(draft)
+        draft = ""
+        inputFocused = true
+    }
+
+    // MARK: - Setup (no API key yet)
+
+    private var setupPrompt: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "key.horizontal.fill")
+                .foregroundStyle(.gray)
+                .imageScale(.large)
+            Text("Add your Anthropic API key")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Settings › Claude, then paste your key to start chatting.")
+                .font(.system(size: 10))
+                .foregroundStyle(.gray)
+                .multilineTextAlignment(.center)
+            Button("Open Settings") {
+                DispatchQueue.main.async { SettingsWindowController.shared.showWindow() }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .tint(.claudeOrange)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
 
 // MARK: - Claude logo mark
 
 /// A lightweight approximation of the Claude "sunburst" mark drawn as radiating
-/// spokes, so we don't need to ship the official asset. Swap for the real logo
-/// image if/when it's added to the asset catalog.
+/// spokes, so we don't need to ship the official asset.
 struct ClaudeMark: View {
     var size: CGFloat
     var color: Color
@@ -167,103 +237,33 @@ struct ClaudeMark: View {
     }
 }
 
-// MARK: - Embedded claude.ai web view
+/// While the Claude tab is open we flip the notch window to key so its text
+/// field can receive typing, restoring the default when the tab closes.
+private struct NotchKeyFocusEnabler: NSViewRepresentable {
+    var isEditing: Bool
 
-struct ClaudeWebView: NSViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
-
-    func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        // Persistent data store keeps the login/cookies between launches.
-        config.websiteDataStore = .default()
-
-        let webView = WKWebView(frame: .zero, configuration: config)
-        webView.uiDelegate = context.coordinator
-        webView.navigationDelegate = context.coordinator
-        webView.setValue(false, forKey: "drawsBackground")
-        webView.allowsBackForwardNavigationGestures = true
-
-        if webView.url == nil {
-            webView.load(URLRequest(url: Coordinator.homeURL))
-        }
-
-        context.coordinator.observe(webView)
-        return webView
-    }
-
-    func updateNSView(_ nsView: WKWebView, context: Context) {}
-
-    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate {
-        static let homeURL = URL(string: "https://claude.ai/new")!
-
-        private var reloadObserver: NSObjectProtocol?
-        private var urlObservation: NSKeyValueObservation?
-
-        func observe(_ webView: WKWebView) {
-            reloadObserver = NotificationCenter.default.addObserver(
-                forName: .claudeReload, object: nil, queue: .main
-            ) { [weak webView] _ in
-                webView?.reload()
-            }
-            // claude.ai is a single-page app: the conversation URL changes via
-            // client-side routing, so observe `url` (KVO-compliant) directly
-            // rather than relying on navigation-delegate callbacks.
-            urlObservation = webView.observe(\.url, options: [.initial, .new]) { webView, _ in
-                DispatchQueue.main.async {
-                    ClaudeSession.shared.currentURL = webView.url
-                }
-            }
-        }
-
-        deinit {
-            if let reloadObserver { NotificationCenter.default.removeObserver(reloadObserver) }
-            urlObservation?.invalidate()
-        }
-
-        // Load target=_blank / OAuth popups (e.g. Google sign-in) in the same view.
-        func webView(
-            _ webView: WKWebView,
-            createWebViewWith configuration: WKWebViewConfiguration,
-            for navigationAction: WKNavigationAction,
-            windowFeatures: WKWindowFeatures
-        ) -> WKWebView? {
-            if navigationAction.targetFrame == nil {
-                webView.load(navigationAction.request)
-            }
-            return nil
-        }
-    }
-}
-
-// MARK: - Window height resizer
-
-/// Resizes the hosting notch window to `height` while this view is on screen and
-/// restores it to `windowSize.height` when it disappears, keeping the window's
-/// top edge anchored to the screen.
-struct NotchWindowHeightResizer: NSViewRepresentable {
-    let height: CGFloat
-
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { Self.setHeight(height, for: view.window) }
-        return view
-    }
+    func makeNSView(context: Context) -> NSView { NSView(frame: .zero) }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        DispatchQueue.main.async { Self.setHeight(height, for: nsView.window) }
+        DispatchQueue.main.async {
+            guard let window = nsView.window as? BoringNotchSkyLightWindow else { return }
+            if isEditing {
+                if !window.isKeyEnabled {
+                    window.isKeyEnabled = true
+                    NSApp.activate(ignoringOtherApps: true)
+                    window.makeKey()
+                }
+            } else if window.isKeyEnabled {
+                window.isKeyEnabled = false
+                window.resignKey()
+            }
+        }
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
-        let window = nsView.window
-        DispatchQueue.main.async { setHeight(windowSize.height, for: window) }
-    }
-
-    private static func setHeight(_ height: CGFloat, for window: NSWindow?) {
-        guard let window, abs(window.frame.height - height) > 0.5 else { return }
-        var frame = window.frame
-        let top = frame.maxY
-        frame.size.height = height
-        frame.origin.y = top - height
-        window.setFrame(frame, display: true, animate: true)
+        if let window = nsView.window as? BoringNotchSkyLightWindow, window.isKeyEnabled {
+            window.isKeyEnabled = false
+            window.resignKey()
+        }
     }
 }

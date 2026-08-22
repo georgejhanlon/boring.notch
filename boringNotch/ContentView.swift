@@ -44,8 +44,6 @@ struct ContentView: View {
         // rounded corners stay within the window. Email's content is kept within
         // that budget so it never overflows/clips.
         if coordinator.currentView == .checklist { return nil }
-        // Claude expands into a taller chat panel (the window is grown to match).
-        if coordinator.currentView == .claude { return claudeNotchSize.height }
         return vm.notchSize.height
     }
     @State private var hoverTask: Task<Void, Never>?
@@ -172,7 +170,11 @@ struct ContentView: View {
                     .opacity((isNotchHeightZero && vm.notchState == .closed) ? 0.01 : 1)
                 
                 mainLayout
-                    .frame(height: openNotchFrameHeight)
+                    // Anchor content to the very top so the notch never shifts
+                    // vertically between tabs/clicks. Default frame alignment is
+                    // .center, which lifts content up by a pixel when a tab's
+                    // natural height differs slightly from the fixed height.
+                    .frame(height: openNotchFrameHeight, alignment: .top)
                     .conditionalModifier(true) { view in
                         return view
                             .animation(vm.notchState == .open ? StandardAnimations.open : StandardAnimations.close, value: vm.notchState)
@@ -267,11 +269,7 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(
-            maxWidth: windowSize.width,
-            maxHeight: (coordinator.currentView == .claude && vm.notchState == .open) ? claudeWindowSize.height : windowSize.height,
-            alignment: .top
-        )
+        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .ignoresSafeArea(.all)
         .compositingGroup()
         .scaleEffect(

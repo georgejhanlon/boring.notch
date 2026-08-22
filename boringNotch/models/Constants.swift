@@ -299,6 +299,9 @@ extension Defaults.Keys {
         "emailActionSlots",
         default: EmailActionButton.defaultLayout
     )
+
+    // MARK: Claude
+    static let anthropicAPIKey = Key<String>("anthropicAPIKey", default: "")
     
     // MARK: Battery
     static let showPowerStatusNotifications = Key<Bool>("showPowerStatusNotifications", default: true)

@@ -19,6 +19,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
     case shelf
     case checklist
     case email
+    case claude
     case mirror
     case shortcuts
     case advanced
@@ -37,6 +38,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: "Shelf"
         case .checklist: "Checklist"
         case .email: "Email"
+        case .claude: "Claude"
         case .mirror: "Mirror"
         case .shortcuts: "Shortcuts"
         case .advanced: "Advanced"
@@ -55,6 +57,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .shelf: "books.vertical"
         case .checklist: "checklist"
         case .email: "envelope"
+        case .claude: "sparkles"
         case .mirror: "camera"
         case .shortcuts: "keyboard"
         case .advanced: "gearshape.2"
@@ -106,6 +109,8 @@ struct SettingsView: View {
                     ChecklistSettings()
                 case .email:
                     EmailSettings()
+                case .claude:
+                    ClaudeSettings()
                 case .mirror:
                     MirrorSettings()
                 case .shortcuts:
