@@ -82,7 +82,7 @@ struct ShelfView: View {
         Group {
             if tvm.isEmpty {
                 VStack(spacing: 10) {
-                    Image(systemName: "tray.and.arrow.down")
+                    Image(systemName: "books.vertical")
                         .symbolVariant(.fill)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.white, .gray)
