@@ -39,12 +39,11 @@ struct ContentView: View {
     /// notch resizes as items expand/collapse; fixed height for every other view.
     private var openNotchFrameHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
-        // Checklist and Email size to their content so the notch grows *downward*
-        // to fit rather than being center-clipped against the fixed height (which
-        // pushed the Email tab up above the screen). Email keeps a stable content
-        // height so it only settles once. Every other tab uses the fixed height.
+        // Only the Checklist sizes to its content. Every other tab (Email
+        // included) uses the fixed notch height so it matches in size and its
+        // rounded corners stay within the window. Email's content is kept within
+        // that budget so it never overflows/clips.
         if coordinator.currentView == .checklist { return nil }
-        if coordinator.currentView == .email { return nil }
         return vm.notchSize.height
     }
     @State private var hoverTask: Task<Void, Never>?

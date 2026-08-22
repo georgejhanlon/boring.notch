@@ -24,7 +24,7 @@ struct EmailTriageView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             headerRow
             HStack(alignment: .center, spacing: 10) {
                 navButton(system: "arrow.left", enabled: store.canGoBack) { store.goBack() }
@@ -32,11 +32,11 @@ struct EmailTriageView: View {
                 navButton(system: "arrow.right", enabled: store.canGoForward) { store.goForward() }
             }
             actionRow
-                .padding(.top, 6)
+                .padding(.top, 4)
         }
         .padding(.horizontal, 14)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
         // Fill the notch's already-inset content width rather than forcing the
         // full window width, which would overflow and hide the rounded corners.
         .frame(maxWidth: .infinity)
@@ -48,7 +48,7 @@ struct EmailTriageView: View {
     private var headerRow: some View {
         HStack(spacing: 8) {
             Text("Email")
-                .font(.system(.headline, design: .rounded))
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
             if !store.isEmpty {
                 Text("\(store.index + 1) of \(store.messages.count)")
@@ -93,7 +93,7 @@ struct EmailTriageView: View {
         // makes the notch settle to one size, so it never breathes as the body
         // text loads in.
         .frame(maxWidth: .infinity)
-        .frame(height: 78)
+        .frame(height: 72)
     }
 
     private func messageCard(_ message: MailMessage) -> some View {
