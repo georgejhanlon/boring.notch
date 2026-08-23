@@ -110,6 +110,18 @@ struct ClaudeChatView: View {
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
 
+            Button {
+                // Summarise whatever's on the clipboard (the notch is key while
+                // this tab is open, so we can't grab a fresh selection here).
+                SummariseStore.shared.capture(copyFirst: false)
+                withAnimation(.smooth) { coordinator.currentView = .summarise }
+            } label: {
+                Image(systemName: "sparkles")
+                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Summarise the clipboard")
+
             Button(action: exportToClaudeDesktop) {
                 Image(systemName: "arrow.up.forward.app")
                     .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())

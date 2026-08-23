@@ -453,6 +453,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        KeyboardShortcuts.onKeyDown(for: .summariseSelection) { [weak self] in
+            guard let self = self else { return }
+            Task { @MainActor in
+                // Grab the selection while the user's app is still frontmost.
+                SummariseStore.shared.capture(copyFirst: true)
+
+                let mouseLocation = NSEvent.mouseLocation
+                var viewModel = self.vm
+                if Defaults[.showOnAllDisplays] {
+                    for screen in NSScreen.screens where screen.frame.contains(mouseLocation) {
+                        if let uuid = screen.displayUUID, let svm = self.viewModels[uuid] {
+                            viewModel = svm
+                            break
+                        }
+                    }
+                }
+                self.coordinator.currentView = .summarise
+                if viewModel.notchState == .closed { _ = viewModel.open() }
+            }
+        }
+
         // Sync notch height with real value on app launch if mode is matchRealNotchSize
         syncNotchHeightIfNeeded()
         

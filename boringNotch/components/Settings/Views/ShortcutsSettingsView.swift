@@ -26,6 +26,13 @@ struct Shortcuts: View {
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
             }
+            Section {
+                KeyboardShortcuts.Recorder("Summarise Selection:", name: .summariseSelection)
+            } footer: {
+                Text("Copies the current selection and shows a quick Claude summary in the notch. Needs Accessibility permission and an API key (Settings › Claude).")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+            }
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shortcuts")

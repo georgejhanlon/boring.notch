@@ -19,8 +19,7 @@ let tabs = [
     TabModel(label: "Email", icon: "tray.fill", view: .email),
     TabModel(label: "Shelf", icon: "books.vertical.fill", view: .shelf),
     TabModel(label: "Checklist", icon: "checklist", view: .checklist),
-    TabModel(label: "Clipboard", icon: "doc.on.clipboard.fill", view: .clipboard),
-    TabModel(label: "Timer", icon: "timer", view: .timer)
+    TabModel(label: "Clipboard", icon: "doc.on.clipboard.fill", view: .clipboard)
 ]
 
 struct TabSelectionView: View {

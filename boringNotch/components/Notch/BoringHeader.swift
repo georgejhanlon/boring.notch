@@ -23,7 +23,9 @@ struct BoringHeader: View {
                     EmptyView()
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Centre the tabs in the space between the notch's left edge and the
+            // physical notch, rather than hugging the far-left edge.
+            .frame(maxWidth: .infinity, alignment: .center)
             .opacity(vm.notchState == .closed ? 0 : 1)
             .blur(radius: vm.notchState == .closed ? 20 : 0)
             .zIndex(2)
@@ -49,23 +51,21 @@ struct BoringHeader: View {
                             .transition(.scale(scale: 0.8).combined(with: .opacity))
                     } else {
                         Button(action: {
-                            // Grab the current selection first (notch is
-                            // non-activating, so the user's app stays frontmost),
-                            // then show the summary panel.
-                            SummariseStore.shared.capture()
-                            withAnimation(.smooth) { coordinator.currentView = .summarise }
+                            withAnimation(.smooth) {
+                                coordinator.currentView = coordinator.currentView == .timer ? .home : .timer
+                            }
                         }) {
                             Capsule()
-                                .fill(coordinator.currentView == .summarise ? Color(nsColor: .secondarySystemFill) : .black)
+                                .fill(coordinator.currentView == .timer ? Color(nsColor: .secondarySystemFill) : .black)
                                 .frame(width: 30, height: 30)
                                 .overlay {
-                                    Image(systemName: "sparkles")
-                                        .foregroundColor(coordinator.currentView == .summarise ? .claudeOrange : .gray)
+                                    Image(systemName: "timer")
+                                        .foregroundColor(coordinator.currentView == .timer ? .claudeOrange : .gray)
                                         .imageScale(.medium)
                                 }
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .help("Summarise selection")
+                        .help("Focus timer")
 
                         Button(action: {
                             withAnimation(.smooth) {

@@ -26,14 +26,21 @@ final class SummariseStore: ObservableObject {
 
     private init() {}
 
-    /// Copies the current selection to the clipboard, reads it, and summarises.
-    func capture() {
+    /// Summarises the current selection (or clipboard). `copyFirst` synthesizes a
+    /// ⌘C to grab a fresh selection — use it for the global hotkey (where the
+    /// user's app is frontmost). From inside the notch (which is key while the
+    /// Claude tab is open) pass `false` to just read the current clipboard.
+    func capture(copyFirst: Bool = true) {
         state = .capturing
         summary = ""
         sourceText = ""
 
-        Self.synthesizeCopy()
+        guard copyFirst else {
+            readAndSummarise()
+            return
+        }
 
+        Self.synthesizeCopy()
         // Give the frontmost app a beat to place the selection on the pasteboard.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.readAndSummarise()
