@@ -513,7 +513,7 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed))
                         .frame(width: artSize, height: artSize)
                 } else {
-                    timerBadge.padding(.trailing, liveActivityEdgeMargin)
+                    timerBadge.padding(.trailing, liveActivityEdgeMargin + 4)
                 }
             }
 
@@ -541,6 +541,7 @@ struct ContentView: View {
                 .foregroundStyle(.white)
                 .monospacedDigit()
         }
+        .fixedSize()
     }
 
     func MusicLiveActivity() -> some View {
