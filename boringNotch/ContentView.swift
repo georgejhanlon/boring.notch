@@ -25,6 +25,7 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
 
     @ObservedObject var checklistStore = ChecklistStore.shared
+    @ObservedObject var pomodoro = PomodoroTimer.shared
     @Default(.checklistAlwaysOn) var checklistAlwaysOn
     @State private var isHoveringChecklist = false
 
@@ -363,6 +364,9 @@ struct ContentView: View {
                               gestureProgress: $gestureProgress
                           )
                               .transition(.opacity)
+                      } else if pomodoro.isRunning && vm.notchState == .closed && !vm.hideOnClosed {
+                          TimerLiveActivity()
+                              .frame(alignment: .center)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)

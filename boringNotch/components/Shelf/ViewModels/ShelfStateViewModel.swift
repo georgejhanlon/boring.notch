@@ -116,6 +116,39 @@ final class ShelfStateViewModel: ObservableObject {
         items.compactMap { $0.fileURL }
     }
 
+    /// Security-scoped URLs kept alive so a "Grab all" paste can read the files.
+    private static var grabbedURLs: [URL] = []
+
+    /// Copies every shelf item to the general pasteboard — file items as file
+    /// URLs (so they can be pasted into Finder), otherwise text/links as strings.
+    func copyAllToPasteboard() {
+        let all = items
+        let pb = NSPasteboard.general
+
+        for url in Self.grabbedURLs { url.stopAccessingSecurityScopedResource() }
+        Self.grabbedURLs.removeAll()
+        pb.clearContents()
+
+        let fileURLs: [URL] = all.compactMap { item in
+            if case .file = item.kind { return resolveAndUpdateBookmark(for: item) }
+            return nil
+        }
+
+        if !fileURLs.isEmpty {
+            Self.grabbedURLs = fileURLs.filter { $0.startAccessingSecurityScopedResource() }
+            pb.writeObjects(fileURLs as [NSURL])
+        } else {
+            let strings: [String] = all.compactMap { item in
+                switch item.kind {
+                case .text(let s): return s
+                case .link(let u): return u.absoluteString
+                case .file: return nil
+                }
+            }
+            if !strings.isEmpty { pb.setString(strings.joined(separator: "\n"), forType: .string) }
+        }
+    }
+
     @MainActor
     func flushSync() {
         // Cancel any scheduled persistence task (we'll save synchronously now)

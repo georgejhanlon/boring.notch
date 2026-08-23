@@ -14,6 +14,7 @@ struct ShelfView: View {
     @StateObject var tvm = ShelfStateViewModel.shared
     @StateObject var selection = ShelfSelectionModel.shared
     @StateObject private var quickLookService = QuickLookService()
+    @State private var grabbedAll = false
     private let spacing: CGFloat = 8
 
     var body: some View {
@@ -76,6 +77,34 @@ struct ShelfView: View {
             }
             .contentShape(Rectangle())
             .onTapGesture { selection.clear() }
+            .overlay(alignment: .bottomTrailing) {
+                if tvm.items.count > 1 {
+                    grabAllButton
+                        .padding(10)
+                }
+            }
+    }
+
+    /// Copies every shelf item to the clipboard so the whole shelf can be pasted
+    /// in one go (Finder, etc.). Shown only when there's more than one item.
+    private var grabAllButton: some View {
+        Button {
+            tvm.copyAllToPasteboard()
+            grabbedAll = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { grabbedAll = false }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: grabbedAll ? "checkmark" : "square.and.arrow.up.on.square")
+                Text(grabbedAll ? "Copied" : "Grab all")
+            }
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(grabbedAll ? .green : .white)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.white.opacity(0.14)))
+        }
+        .buttonStyle(.plain)
+        .help("Copy all shelf items to the clipboard")
     }
 
     var content: some View {

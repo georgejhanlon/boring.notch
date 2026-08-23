@@ -11,7 +11,7 @@ import SwiftUI
 struct TimerView: View {
     @StateObject private var timer = PomodoroTimer.shared
 
-    private let presets = [5, 15, 25, 45]
+    private let presets = [5, 15, 25, 45, 60]
 
     var body: some View {
         HStack(spacing: 18) {
@@ -67,15 +67,16 @@ struct TimerView: View {
     }
 
     private var presetRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             ForEach(presets, id: \.self) { minutes in
                 Button {
                     timer.setPreset(minutes: minutes)
                 } label: {
-                    Text("\(minutes)m")
+                    Text("\(minutes)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(timer.workMinutes == minutes ? .black : .white)
-                        .padding(.horizontal, 9)
+                        .frame(minWidth: 14)
+                        .padding(.horizontal, 7)
                         .padding(.vertical, 4)
                         .background(
                             Capsule().fill(timer.workMinutes == minutes ? Color.white : Color.white.opacity(0.12))
@@ -83,7 +84,25 @@ struct TimerView: View {
                 }
                 .buttonStyle(.plain)
             }
+
+            // Custom: nudge the duration in 5-minute steps.
+            HStack(spacing: 2) {
+                stepButton("minus") { timer.adjustWork(by: -5) }
+                stepButton("plus") { timer.adjustWork(by: 5) }
+            }
+            .padding(.leading, 2)
         }
+    }
+
+    private func stepButton(_ system: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
     }
 
     private var controls: some View {

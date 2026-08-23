@@ -76,10 +76,16 @@ final class PomodoroTimer: ObservableObject {
     }
 
     func setPreset(minutes: Int) {
+        let clamped = min(max(minutes, 1), 180)
         pause()
         phase = .work
-        workMinutes = minutes
-        remaining = minutes * 60
+        workMinutes = clamped
+        remaining = clamped * 60
+    }
+
+    /// Nudge the (work) duration for a custom timer, in whole minutes.
+    func adjustWork(by delta: Int) {
+        setPreset(minutes: workMinutes + delta)
     }
 
     // MARK: - Internals
