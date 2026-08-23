@@ -513,7 +513,7 @@ struct ContentView: View {
                         .clipShape(RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed))
                         .frame(width: artSize, height: artSize)
                 } else {
-                    timerBadge.padding(.trailing, liveActivityEdgeMargin + 4)
+                    timerBadge.padding(.trailing, liveActivityEdgeMargin + 12)
                 }
             }
 
