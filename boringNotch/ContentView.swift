@@ -494,7 +494,55 @@ struct ContentView: View {
         )
     }
 
+    /// Compact focus-timer indicator for the closed notch. Sizes to its content
+    /// (never full width). When music is playing the album art stays on the left
+    /// and the timer sits on the right; otherwise the timer sits on the left.
     @ViewBuilder
+    func TimerLiveActivity() -> some View {
+        let artSize = displayClosedNotchHeight - 12
+        let musicPlaying = musicManager.isPlaying || !musicManager.isPlayerIdle
+        let gap = vm.closedNotchSize.width - 4 + (2 * liveActivityEdgeMargin)
+
+        HStack(spacing: 0) {
+            // Left slot
+            Group {
+                if musicPlaying {
+                    Image(nsImage: musicManager.albumArt)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed))
+                        .frame(width: artSize, height: artSize)
+                } else {
+                    timerBadge.padding(.trailing, liveActivityEdgeMargin)
+                }
+            }
+
+            Color.clear.frame(width: gap)
+
+            // Right slot
+            Group {
+                if musicPlaying {
+                    timerBadge.padding(.leading, liveActivityEdgeMargin)
+                } else {
+                    Color.clear.frame(width: artSize, height: artSize)
+                }
+            }
+        }
+        .frame(height: displayClosedNotchHeight)
+    }
+
+    private var timerBadge: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(pomodoro.phase.tint)
+            Text(pomodoro.display)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+        }
+    }
+
     func MusicLiveActivity() -> some View {
         HStack(spacing: 0) {
             // Closed-mode album art: scale padding and corner radius according to cornerRadiusScaleFactor
