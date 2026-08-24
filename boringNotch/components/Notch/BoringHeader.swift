@@ -97,6 +97,23 @@ struct BoringHeader: View {
                             }
                             .buttonStyle(PlainButtonStyle())
                         }
+                        Button(action: {
+                            withAnimation(.smooth) {
+                                coordinator.currentView = coordinator.currentView == .screenshot ? .home : .screenshot
+                            }
+                        }) {
+                            Capsule()
+                                .fill(coordinator.currentView == .screenshot ? Color(nsColor: .secondarySystemFill) : .black)
+                                .frame(width: 30, height: 30)
+                                .overlay {
+                                    Image(systemName: "camera.viewfinder")
+                                        .foregroundColor(coordinator.currentView == .screenshot ? .claudeOrange : .gray)
+                                        .imageScale(.medium)
+                                }
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .help("Screenshot")
+
                         if Defaults[.showBatteryIndicator] {
                             BoringBatteryView(
                                 batteryWidth: 30,
