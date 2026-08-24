@@ -2,12 +2,13 @@
 //  ScreenshotView.swift
 //  boringNotch
 //
-//  The Screenshot tab: capture buttons on the left (window / full screen — a
-//  shortcut for the macOS screenshot tools), a content-named history on the
-//  right. History rows are selectable (⌘/⇧ for multiple) and can be dragged
-//  out — onto the Shelf, Finder, or any app — as the underlying files.
+//  The Screenshot tab: capture buttons on the left (selection / full screen /
+//  timed), a content-named history on the right. History rows are selectable
+//  (⌘/⇧ for multiple) and can be dragged out — onto the Shelf, Finder, or any
+//  app — as the underlying files.
 //
 
+import AppKit
 import SwiftUI
 
 struct ScreenshotView: View {
@@ -15,6 +16,8 @@ struct ScreenshotView: View {
 
     /// Multi-selection of history rows, keyed by file URL (the item id).
     @State private var selection = Set<URL>()
+    /// Anchor for ⇧-range selection.
+    @State private var anchor: URL?
 
     /// Delay (seconds) for the timed capture.
     @State private var timerSeconds = 5
@@ -61,33 +64,47 @@ struct ScreenshotView: View {
             captureButton(title: "Full Screen", systemImage: "rectangle.inset.filled") {
                 manager.capture(.fullScreen)
             }
-            captureButton(title: "Timer \(timerSeconds)s", systemImage: "timer") {
-                manager.capture(.fullScreen, delay: timerSeconds)
-            }
-
-            // Seconds stepper for the timed capture.
-            HStack(spacing: 8) {
-                secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
-                Text("\(timerSeconds)s")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white)
-                    .frame(minWidth: 26)
-                secondsStep("plus") { timerSeconds += 1 }
-                Spacer(minLength: 0)
-            }
+            timerButton
 
             Spacer(minLength: 0)
         }
-        .frame(width: 130, alignment: .leading)
+        .frame(width: 148, alignment: .leading)
+    }
+
+    /// Timed full-screen capture with an inline "+ N −" stepper.
+    private var timerButton: some View {
+        HStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "timer").imageScale(.medium).frame(width: 18)
+                Text("Timer").font(.system(.body, design: .rounded))
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { manager.capture(.fullScreen, delay: timerSeconds) }
+
+            Spacer(minLength: 4)
+
+            secondsStep("plus") { timerSeconds += 1 }
+            Text("\(timerSeconds)")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(minWidth: 14)
+                .monospacedDigit()
+            secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
+        .opacity(manager.isBusy ? 0.5 : 1)
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 9, weight: .bold))
+                .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(Circle().fill(Color.white.opacity(0.12)))
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(Color.white.opacity(0.14)))
         }
         .buttonStyle(.plain)
     }
@@ -138,64 +155,93 @@ struct ScreenshotView: View {
             if manager.items.isEmpty {
                 emptyState
             } else {
-                List(selection: $selection) {
-                    ForEach(manager.items) { item in
-                        row(item)
-                            .draggable(item.url)
-                            .simultaneousGesture(
-                                TapGesture(count: 2).onEnded { manager.open(item) }
-                            )
-                            .contextMenu {
-                                Button("Open") { manager.open(item) }
-                                Button("Show in Finder") { manager.reveal(item) }
-                                Divider()
-                                Button("Delete", role: .destructive) { delete(item) }
-                            }
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2))
-                            .listRowSeparator(.hidden)
+                ScrollView {
+                    LazyVStack(spacing: 5) {
+                        ForEach(manager.items) { item in
+                            row(item)
+                        }
                     }
+                    .padding(.vertical, 2)
+                    .padding(.trailing, 6)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
                 .scrollIndicators(.never)
-                .environment(\.defaultMinListRowHeight, 40)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func row(_ item: ScreenshotItem) -> some View {
+        let selected = selection.contains(item.url)
+        return ZStack {
+            HStack(spacing: 8) {
+                Group {
+                    if let image = manager.thumbnail(for: item) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        Image(systemName: "photo")
+                            .foregroundStyle(.gray)
+                    }
+                }
+                .frame(width: 40, height: 28)
+                .clipShape(RoundedRectangle(cornerRadius: 5))
+
+                Text(item.name)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(white: 0.9))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(selected ? Color.accentColor.opacity(0.4) : Color.white.opacity(0.06))
+            )
+
+            ScreenshotRowInteraction(
+                isSelected: { selection.contains(item.url) },
+                onSelect: { mods in handleSelect(item, modifiers: mods) },
+                onOpen: { manager.open(item) },
+                onReveal: { manager.reveal(item) },
+                onDelete: { delete(item) },
+                dragURLs: { dragURLs(for: item) },
+                preview: { manager.thumbnail(for: item) }
+            )
+        }
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Selection
+
+    private func handleSelect(_ item: ScreenshotItem, modifiers: NSEvent.ModifierFlags) {
+        if modifiers.contains(.command) {
+            if selection.contains(item.url) { selection.remove(item.url) } else { selection.insert(item.url) }
+            anchor = item.url
+        } else if modifiers.contains(.shift), let anchor,
+                  let a = manager.items.firstIndex(where: { $0.url == anchor }),
+                  let b = manager.items.firstIndex(where: { $0.url == item.url }) {
+            let range = manager.items[min(a, b)...max(a, b)]
+            selection = Set(range.map { $0.url })
+        } else {
+            selection = [item.url]
+            anchor = item.url
+        }
+    }
+
+    private func dragURLs(for item: ScreenshotItem) -> [URL] {
+        if selection.contains(item.url) && selection.count > 1 {
+            return manager.items.filter { selection.contains($0.url) }.map { $0.url }
+        }
+        return [item.url]
+    }
+
     private func delete(_ item: ScreenshotItem) {
         selection.remove(item.url)
         manager.delete(item)
-    }
-
-    private func row(_ item: ScreenshotItem) -> some View {
-        HStack(spacing: 8) {
-            Group {
-                if let image = manager.thumbnail(for: item) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    Image(systemName: "photo")
-                        .foregroundStyle(.gray)
-                }
-            }
-            .frame(width: 40, height: 28)
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-
-            Text(item.name)
-                .font(.system(size: 11))
-                .foregroundStyle(Color(white: 0.9))
-                .lineLimit(1)
-                .truncationMode(.middle)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 5)
-        .contentShape(Rectangle())
     }
 
     private var emptyState: some View {

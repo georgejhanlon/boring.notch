@@ -41,6 +41,11 @@ final class ScreenshotManager: ObservableObject {
     /// ~/Desktop/Screenshots — created on first use.
     private let folder: URL
 
+    /// A ready-to-use folder icon dropped in the folder (PNG — has transparency,
+    /// unlike JPEG — so it works when pasted onto the folder via Get Info).
+    /// Excluded from history.
+    private let iconFilename = "Folder Icon.png"
+
     /// Where macOS itself saves ⌘⇧3/4 screenshots (default: Desktop).
     private let systemScreenshotDir: URL
     /// The prefix macOS uses for screenshot filenames (default: "Screenshot").
@@ -66,6 +71,7 @@ final class ScreenshotManager: ObservableObject {
         systemScreenshotPrefix = Self.resolveSystemScreenshotPrefix()
 
         ensureFolder()
+        writeFolderIconIfNeeded()
         reload()
         startWatchingSystemScreenshots()
     }
@@ -151,6 +157,46 @@ final class ScreenshotManager: ObservableObject {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     }
 
+    /// Drops a reusable folder-icon PNG into the folder once.
+    private func writeFolderIconIfNeeded() {
+        let iconURL = folder.appendingPathComponent(iconFilename)
+        guard !FileManager.default.fileExists(atPath: iconURL.path) else { return }
+        guard let data = Self.renderIconPNG() else { return }
+        try? data.write(to: iconURL)
+    }
+
+    /// Renders a square PNG (rounded dark tile + white camera glyph) suitable for
+    /// pasting onto the folder in Get Info.
+    private static func renderIconPNG() -> Data? {
+        let side: CGFloat = 1024
+        let image = NSImage(size: NSSize(width: side, height: side))
+        image.lockFocus()
+
+        let inset: CGFloat = 96
+        let tile = NSRect(x: inset, y: inset, width: side - inset * 2, height: side - inset * 2)
+        NSBezierPath(roundedRect: tile, xRadius: 180, yRadius: 180).addClip()
+        NSColor(calibratedRed: 0.16, green: 0.17, blue: 0.20, alpha: 1).setFill()
+        tile.fill()
+
+        let config = NSImage.SymbolConfiguration(pointSize: 520, weight: .regular)
+            .applying(NSImage.SymbolConfiguration(paletteColors: [.white]))
+        if let glyph = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: nil)?
+            .withSymbolConfiguration(config) {
+            let s = glyph.size
+            glyph.draw(
+                at: NSPoint(x: (side - s.width) / 2, y: (side - s.height) / 2),
+                from: .zero, operation: .sourceOver, fraction: 1
+            )
+        }
+
+        image.unlockFocus()
+
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let data = rep.representation(using: .png, properties: [:]) else { return nil }
+        return data
+    }
+
     private func reload() {
         ensureFolder()
         let keys: [URLResourceKey] = [.contentModificationDateKey, .isRegularFileKey]
@@ -162,6 +208,7 @@ final class ScreenshotManager: ObservableObject {
 
         items = urls
             .filter { Self.imageExtensions.contains($0.pathExtension.lowercased()) }
+            .filter { $0.lastPathComponent != iconFilename }
             .map { url -> ScreenshotItem in
                 let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                     .contentModificationDate ?? .distantPast
