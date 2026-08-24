@@ -22,10 +22,8 @@ struct ScreenshotView: View {
     /// Delay (seconds) for the timed capture.
     @State private var timerSeconds = 5
 
-    /// Which targets the timed capture hits. Independent toggles — arm either or
-    /// both; the capture only fires when the middle button is pressed.
-    @State private var armWindow = false
-    @State private var armFullScreen = true
+    /// The timed capture's target — a two-position switch (windowed / full screen).
+    @State private var timedMode: ScreenshotManager.Mode = .fullScreen
 
     /// Row currently under the pointer (shows its delete control).
     @State private var hoveredItem: URL?
@@ -82,22 +80,19 @@ struct ScreenshotView: View {
         .frame(width: 164, alignment: .leading)
     }
 
-    /// Timed capture. A window/full-screen "lightswitch" on the left arms either
-    /// or both targets (highlighted light grey when armed); the shutter button in
-    /// the middle actually fires the timed capture(s); the "+ N −" stepper on the
-    /// right sets the delay.
+    /// Timed capture. A windowed / full-screen "lightswitch" on the left selects
+    /// the target (light grey = selected); the "+ N −" stepper on the right sets
+    /// the delay; clicking anywhere in between fires the timed capture.
     private var timerButton: some View {
         HStack(spacing: 6) {
             HStack(spacing: 3) {
-                modeIcon("macwindow", isOn: $armWindow)
-                modeIcon("rectangle.inset.filled", isOn: $armFullScreen)
+                modeIcon("rectangle.dashed", mode: .window)
+                modeIcon("rectangle.inset.filled", mode: .fullScreen)
             }
 
-            Spacer(minLength: 4)
-
-            shutterButton
-
-            Spacer(minLength: 4)
+            // The middle is the shutter: any tap not on the switch or the stepper
+            // fires the timed capture in the selected mode.
+            Spacer(minLength: 8)
 
             HStack(spacing: 5) {
                 secondsStep("plus") { timerSeconds += 1 }
@@ -108,43 +103,33 @@ struct ScreenshotView: View {
                     .monospacedDigit()
                 secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
             }
+            // Consume taps so the delay controls never fire a capture.
+            .contentShape(Rectangle())
+            .onTapGesture {}
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
+        .contentShape(Rectangle())
+        .onTapGesture { manager.capture(timedMode, delay: timerSeconds) }
         .opacity(manager.isBusy ? 0.5 : 1)
     }
 
-    /// One side of the arm switch. Light grey when armed; tapping toggles it.
-    private func modeIcon(_ system: String, isOn: Binding<Bool>) -> some View {
-        Image(systemName: system)
+    /// One position of the two-way switch. Light grey when selected; tapping
+    /// selects that mode (it does not capture — the middle does that).
+    private func modeIcon(_ system: String, mode: ScreenshotManager.Mode) -> some View {
+        let selected = timedMode == mode
+        return Image(systemName: system)
             .imageScale(.small)
-            .foregroundStyle(isOn.wrappedValue ? .white : .white.opacity(0.4))
+            .foregroundStyle(selected ? .white : .white.opacity(0.4))
             .frame(width: 24, height: 22)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isOn.wrappedValue ? Color.white.opacity(0.22) : .clear)
+                    .fill(selected ? Color.white.opacity(0.22) : .clear)
             )
             .contentShape(Rectangle())
-            .onTapGesture { isOn.wrappedValue.toggle() }
-    }
-
-    /// The centre shutter: fires a timed capture for each armed target.
-    private var shutterButton: some View {
-        Button {
-            if armFullScreen { manager.capture(.fullScreen, delay: timerSeconds) }
-            if armWindow { manager.capture(.window, delay: timerSeconds) }
-        } label: {
-            Image(systemName: "rectangle.dashed")
-                .imageScale(.medium)
-                .foregroundStyle(.white)
-                .frame(width: 30, height: 22)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white.opacity(0.16)))
-        }
-        .buttonStyle(.plain)
-        .disabled(!(armWindow || armFullScreen))
-        .help("Take the timed screenshot")
+            .onTapGesture { timedMode = mode }
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
