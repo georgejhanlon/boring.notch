@@ -22,8 +22,11 @@ struct ClaudeChatView: View {
     @StateObject private var keyStore = APIKeyStore.shared
 
     @State private var draft: String = ""
-    @State private var showSwitchConfirm = false
+    @State private var pendingConfirm: PendingConfirm?
     @FocusState private var inputFocused: Bool
+
+    /// A destructive header action that clears the current chat — confirmed in-notch first.
+    private enum PendingConfirm { case switchBackend, newChat }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -40,7 +43,7 @@ struct ClaudeChatView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
-            if showSwitchConfirm { switchConfirm }
+            if let pending = pendingConfirm { confirmCard(pending) }
         }
         // Keep the notch open and key so the field can receive typing.
         .background(NotchKeyFocusEnabler(isEditing: true))
@@ -115,7 +118,7 @@ struct ClaudeChatView: View {
                 if store.isEmpty {
                     performBackendSwitch()
                 } else {
-                    withAnimation(.smooth) { showSwitchConfirm = true }
+                    withAnimation(.smooth) { pendingConfirm = .switchBackend }
                 }
             } label: {
                 HStack(spacing: 5) {
@@ -157,8 +160,7 @@ struct ClaudeChatView: View {
             }
             Spacer()
             Button {
-                store.clear()
-                inputFocused = true
+                withAnimation(.smooth) { pendingConfirm = .newChat }
             } label: {
                 Image(systemName: "square.and.pencil")
                     .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
@@ -198,30 +200,56 @@ struct ClaudeChatView: View {
         withAnimation(.smooth) {
             store.clear()          // switching starts a fresh chat
             store.backend = next
-            showSwitchConfirm = false
+            pendingConfirm = nil
         }
         inputFocused = true
     }
 
-    // MARK: - Switch confirmation (in-notch, not an NSAlert)
+    private func performNewChat() {
+        withAnimation(.smooth) {
+            store.clear()
+            pendingConfirm = nil
+        }
+        inputFocused = true
+    }
 
-    private var switchConfirm: some View {
-        ZStack {
+    // MARK: - Confirmation (in-notch, not an NSAlert)
+
+    /// Title / subtitle / confirm-label / accent / action for each destructive header action.
+    private func confirmCard(_ pending: PendingConfirm) -> some View {
+        let title: String
+        let confirmLabel: String
+        let accentColor: Color
+        let action: () -> Void
+        switch pending {
+        case .switchBackend:
+            title = "Switch to \(otherBackend.title)?"
+            confirmLabel = "Switch"
+            accentColor = accent(for: otherBackend)
+            action = performBackendSwitch
+        case .newChat:
+            title = "Start a new chat?"
+            confirmLabel = "New Chat"
+            accentColor = userAccent
+            action = performNewChat
+        }
+
+        return ZStack {
             Color.black.opacity(0.45)
                 .contentShape(Rectangle())
-                .onTapGesture { withAnimation(.smooth) { showSwitchConfirm = false } }
+                .onTapGesture { withAnimation(.smooth) { pendingConfirm = nil } }
 
             VStack(spacing: 8) {
-                Text("Switch to \(otherBackend.title)?")
+                Text(title)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
-                Text("This will start a new chat.")
+                Text("This will clear the current conversation.")
                     .font(.system(size: 10))
                     .foregroundStyle(.gray)
 
                 HStack(spacing: 8) {
                     Button {
-                        withAnimation(.smooth) { showSwitchConfirm = false }
+                        withAnimation(.smooth) { pendingConfirm = nil }
                     } label: {
                         Text("Cancel")
                             .font(.system(size: 11, weight: .medium))
@@ -231,14 +259,12 @@ struct ClaudeChatView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        performBackendSwitch()
-                    } label: {
-                        Text("Switch")
+                    Button(action: action) {
+                        Text(confirmLabel)
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(accent(for: otherBackend)))
+                            .background(Capsule().fill(accentColor))
                     }
                     .buttonStyle(.plain)
                 }
