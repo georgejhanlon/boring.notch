@@ -57,12 +57,9 @@ struct ClipboardView: View {
             }
             Spacer()
             if !manager.items.isEmpty {
-                Button { manager.clear() } label: {
-                    Image(systemName: "trash")
-                        .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
+                HoldToDeleteButton(help: "Hold to clear history") {
+                    manager.clear()
                 }
-                .buttonStyle(.plain)
-                .help("Clear history")
             }
         }
     }
@@ -75,6 +72,8 @@ struct ClipboardView: View {
                 }
             }
             .padding(.vertical, 2)
+            // Keep the copy button clear of the scroll indicator.
+            .padding(.trailing, 6)
         }
     }
 

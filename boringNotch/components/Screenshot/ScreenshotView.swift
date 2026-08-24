@@ -16,6 +16,9 @@ struct ScreenshotView: View {
     /// Multi-selection of history rows, keyed by file URL (the item id).
     @State private var selection = Set<URL>()
 
+    /// Delay (seconds) for the timed capture.
+    @State private var timerSeconds = 5
+
     /// Set from ContentView so scroll/hover over the history suppresses the
     /// notch close gesture (mirrors the Clipboard/Checklist convention).
     @Binding var isHovering: Bool
@@ -52,23 +55,45 @@ struct ScreenshotView: View {
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
 
-            captureButton(title: "Window", systemImage: "macwindow", mode: .window)
-            captureButton(title: "Full Screen", systemImage: "rectangle.inset.filled", mode: .fullScreen)
+            captureButton(title: "Selection", systemImage: "rectangle.dashed") {
+                manager.capture(.window)
+            }
+            captureButton(title: "Full Screen", systemImage: "rectangle.inset.filled") {
+                manager.capture(.fullScreen)
+            }
+            captureButton(title: "Timer \(timerSeconds)s", systemImage: "timer") {
+                manager.capture(.fullScreen, delay: timerSeconds)
+            }
+
+            // Seconds stepper for the timed capture.
+            HStack(spacing: 8) {
+                secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
+                Text("\(timerSeconds)s")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(minWidth: 26)
+                secondsStep("plus") { timerSeconds += 1 }
+                Spacer(minLength: 0)
+            }
 
             Spacer(minLength: 0)
-
-            Text("Drag items to the Shelf or Finder. ⌘-click for more than one.")
-                .font(.system(size: 9))
-                .foregroundStyle(.gray)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(width: 130, alignment: .leading)
     }
 
-    private func captureButton(title: String, systemImage: String, mode: ScreenshotManager.Mode) -> some View {
-        Button {
-            manager.capture(mode)
-        } label: {
+    private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: system)
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func captureButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: systemImage)
                     .imageScale(.medium)

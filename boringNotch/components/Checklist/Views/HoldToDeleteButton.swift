@@ -10,6 +10,7 @@ import SwiftUI
 
 struct HoldToDeleteButton: View {
     var duration: Double = 2
+    var help: String = "Hold to delete"
     var action: () -> Void
 
     @State private var progress: CGFloat = 0
@@ -43,7 +44,7 @@ struct HoldToDeleteButton: View {
                 .onChanged { _ in startHold() }
                 .onEnded { _ in cancelHold() }
         )
-        .help("Hold to clear the current checklist")
+        .help(help)
     }
 
     private func startHold() {

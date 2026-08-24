@@ -33,9 +33,10 @@ final class ScreenshotManager: ObservableObject {
     /// (background) naming step, so the UI never waits on the network.
     @Published private(set) var isBusy = false
 
-    /// The naming backend. Swap this to move off the API (e.g. to on-device
-    /// Apple Intelligence): `ScreenshotManager.namer = AppleIntelligenceNamer()`.
-    nonisolated(unsafe) static var namer: ScreenshotNamer = AnthropicScreenshotNamer()
+    /// The naming backend. On-device Apple Intelligence by default (free, no
+    /// network). `AnthropicScreenshotNamer()` remains available as an API-based
+    /// alternative.
+    nonisolated(unsafe) static var namer: ScreenshotNamer = AppleIntelligenceNamer()
 
     /// ~/Desktop/Screenshots — created on first use.
     private let folder: URL
@@ -82,7 +83,8 @@ final class ScreenshotManager: ObservableObject {
     }
 
     /// Runs `screencapture`, then renames the file from its AI-generated name.
-    func capture(_ mode: Mode) {
+    /// `delay` (seconds) uses `screencapture -T` for a timed capture.
+    func capture(_ mode: Mode, delay: Int = 0) {
         guard !isBusy else { return }
         isBusy = true
 
@@ -94,8 +96,9 @@ final class ScreenshotManager: ObservableObject {
         var args = ["-x"]                 // -x: no capture sound
         switch mode {
         case .fullScreen: args += ["-m"]  // -m: main display only → one file
-        case .window:     args += ["-w", "-o"]  // -w: window mode, -o: no shadow
+        case .window:     args += ["-i"]  // -i: ⌘⇧4 crosshair region drag
         }
+        if delay > 0 { args += ["-T", String(delay)] }  // -T: capture after N seconds
         args.append(tempURL.path)
 
         Task.detached { [folder] in

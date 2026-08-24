@@ -128,7 +128,7 @@ struct ChecklistView: View {
                 .buttonStyle(.plain)
                 .help("Keep the checklist visible in the notch")
 
-                HoldToDeleteButton {
+                HoldToDeleteButton(help: "Hold to clear the current checklist") {
                     withAnimation(.smooth) { store.clearCurrent() }
                 }
 
