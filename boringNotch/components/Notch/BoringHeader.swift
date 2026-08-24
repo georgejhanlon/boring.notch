@@ -109,7 +109,7 @@ struct BoringHeader: View {
                                 .frame(width: 30, height: 30)
                                 .overlay {
                                     Image(systemName: "camera.viewfinder")
-                                        .foregroundColor(coordinator.currentView == .screenshot ? .claudeOrange : .gray)
+                                        .foregroundColor(coordinator.currentView == .screenshot ? .white : .gray)
                                         .imageScale(.medium)
                                 }
                         }

@@ -168,15 +168,6 @@ struct ClaudeChatView: View {
             .buttonStyle(.plain)
             .help("New chat")
             .disabled(store.isEmpty)
-
-            Button {
-                withAnimation(.smooth) { coordinator.currentView = .home }
-            } label: {
-                Image(systemName: "xmark")
-                    .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Close Claude")
         }
     }
 
