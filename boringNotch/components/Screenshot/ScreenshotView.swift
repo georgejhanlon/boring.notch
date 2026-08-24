@@ -22,6 +22,9 @@ struct ScreenshotView: View {
     /// Delay (seconds) for the timed capture.
     @State private var timerSeconds = 5
 
+    /// Which target the timed capture hits — toggled by the window/full-screen switch.
+    @State private var timedMode: ScreenshotManager.Mode = .fullScreen
+
     /// Row currently under the pointer (shows its delete control).
     @State private var hoveredItem: URL?
 
@@ -77,17 +80,22 @@ struct ScreenshotView: View {
         .frame(width: 164, alignment: .leading)
     }
 
-    /// Timed full-screen capture with an inline "+ N −" stepper.
+    /// Timed capture. A window/full-screen "lightswitch" (with a timer glyph in
+    /// the middle) picks the target — the selected side is highlighted light grey.
+    /// Tapping a side selects it and fires; tapping anywhere else fires the
+    /// currently-selected mode. An inline "+ N −" stepper sets the delay.
     private var timerButton: some View {
         HStack(spacing: 5) {
-            HStack(spacing: 6) {
-                Image(systemName: "timer").imageScale(.medium).frame(width: 16)
-                Text("Timer")
-                    .font(.system(.body, design: .rounded))
-                    .fixedSize()
+            HStack(spacing: 3) {
+                modeIcon("macwindow", mode: .window)
+                Image(systemName: "timer")
+                    .imageScale(.small)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 18, height: 22)
+                modeIcon("rectangle.inset.filled", mode: .fullScreen)
             }
             .contentShape(Rectangle())
-            .onTapGesture { manager.capture(.fullScreen, delay: timerSeconds) }
+            .onTapGesture { manager.capture(timedMode, delay: timerSeconds) }
 
             Spacer(minLength: 2)
 
@@ -104,6 +112,25 @@ struct ScreenshotView: View {
         .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
         .opacity(manager.isBusy ? 0.5 : 1)
+    }
+
+    /// One side of the timed-capture switch. Highlighted light grey when selected;
+    /// tapping selects that mode and starts the timed capture in it.
+    private func modeIcon(_ system: String, mode: ScreenshotManager.Mode) -> some View {
+        let selected = timedMode == mode
+        return Image(systemName: system)
+            .imageScale(.small)
+            .foregroundStyle(selected ? .white : .white.opacity(0.4))
+            .frame(width: 24, height: 22)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(selected ? Color.white.opacity(0.22) : .clear)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                timedMode = mode
+                manager.capture(mode, delay: timerSeconds)
+            }
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
