@@ -90,9 +90,12 @@ struct ScreenshotView: View {
                 modeIcon("rectangle.inset.filled", mode: .fullScreen)
             }
 
-            // The middle is the shutter: any tap not on the switch or the stepper
-            // fires the timed capture in the selected mode.
-            Spacer(minLength: 8)
+            // The middle is the shutter: pressing it greys, then fires the timed
+            // capture in the selected mode on release.
+            Button { manager.capture(timedMode, delay: timerSeconds) } label: {
+                Color.clear.frame(maxWidth: .infinity, minHeight: 22)
+            }
+            .buttonStyle(PressFillStyle(pressed: 0.20))
 
             HStack(spacing: 5) {
                 secondsStep("plus") { timerSeconds += 1 }
@@ -103,33 +106,25 @@ struct ScreenshotView: View {
                     .monospacedDigit()
                 secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
             }
-            // Consume taps so the delay controls never fire a capture.
-            .contentShape(Rectangle())
-            .onTapGesture {}
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
-        .contentShape(Rectangle())
-        .onTapGesture { manager.capture(timedMode, delay: timerSeconds) }
         .opacity(manager.isBusy ? 0.5 : 1)
     }
 
-    /// One position of the two-way switch. Light grey when selected; tapping
-    /// selects that mode (it does not capture — the middle does that).
+    /// One position of the two-way switch. Light grey when selected, greyer while
+    /// pressed; tapping selects that mode (it does not capture — the middle does).
     private func modeIcon(_ system: String, mode: ScreenshotManager.Mode) -> some View {
         let selected = timedMode == mode
-        return Image(systemName: system)
-            .imageScale(.small)
-            .foregroundStyle(selected ? .white : .white.opacity(0.4))
-            .frame(width: 24, height: 22)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(selected ? Color.white.opacity(0.22) : .clear)
-            )
-            .contentShape(Rectangle())
-            .onTapGesture { timedMode = mode }
+        return Button { timedMode = mode } label: {
+            Image(systemName: system)
+                .imageScale(.small)
+                .foregroundStyle(selected ? .white : .white.opacity(0.4))
+                .frame(width: 24, height: 22)
+        }
+        .buttonStyle(PressFillStyle(base: selected ? 0.22 : 0, pressed: 0.34))
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
@@ -137,10 +132,8 @@ struct ScreenshotView: View {
             Image(systemName: system)
                 .font(.system(size: 8, weight: .bold))
                 .foregroundStyle(.white)
-                .frame(width: 18, height: 18)
-                .background(Circle().fill(Color.white.opacity(0.14)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CirclePressStyle())
     }
 
     private func captureButton(title: String, systemImage: String, action: @escaping () -> Void) -> some View {
@@ -156,10 +149,8 @@ struct ScreenshotView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
-            .contentShape(RoundedRectangle(cornerRadius: 9))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressFillStyle(base: 0.08, pressed: 0.22, cornerRadius: 9))
         .disabled(manager.isBusy)
         .opacity(manager.isBusy ? 0.5 : 1)
     }
@@ -394,5 +385,34 @@ struct ScreenshotView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Pressed-state button styles
+
+/// A rounded-rect button whose fill jumps to a greyer shade while pressed, so a
+/// click reads as a physical press. `base` is the resting fill (0 = transparent).
+private struct PressFillStyle: ButtonStyle {
+    var base: Double = 0
+    var pressed: Double = 0.30
+    var cornerRadius: CGFloat = 6
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(configuration.isPressed ? pressed : base))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+}
+
+/// The small circular +/- steppers, greying while pressed.
+private struct CirclePressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: 18, height: 18)
+            .background(Circle().fill(Color.white.opacity(configuration.isPressed ? 0.30 : 0.14)))
+            .contentShape(Circle())
     }
 }
