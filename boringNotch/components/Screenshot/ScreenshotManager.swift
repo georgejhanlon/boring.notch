@@ -29,8 +29,13 @@ final class ScreenshotManager: ObservableObject {
     static let shared = ScreenshotManager()
 
     @Published private(set) var items: [ScreenshotItem] = []
-    /// Set while a capture is in flight (the picker is up or naming is running).
+    /// Set only while the `screencapture` picker is active — cleared before the
+    /// (background) naming step, so the UI never waits on the network.
     @Published private(set) var isBusy = false
+
+    /// The naming backend. Swap this to move off the API (e.g. to on-device
+    /// Apple Intelligence): `ScreenshotManager.namer = AppleIntelligenceNamer()`.
+    nonisolated(unsafe) static var namer: ScreenshotNamer = AnthropicScreenshotNamer()
 
     /// ~/Desktop/Screenshots — created on first use.
     private let folder: URL
@@ -95,22 +100,26 @@ final class ScreenshotManager: ObservableObject {
 
         Task.detached { [folder] in
             let ok = Self.runScreencapture(args)
-            // A cancelled window pick (Esc) writes no file — nothing to do.
-            guard ok, FileManager.default.fileExists(atPath: tempURL.path) else {
-                await MainActor.run { self.isBusy = false; self.reload() }
-                return
-            }
-
-            let finalURL = await Self.rename(tempURL, in: folder)
+            let landed = ok && FileManager.default.fileExists(atPath: tempURL.path)
+            // Show it instantly with its provisional name and clear the busy
+            // state — the capture is done, naming is off the critical path.
             await MainActor.run {
                 self.isBusy = false
                 self.reload()
-                _ = finalURL
             }
+            guard landed else { return }  // cancelled window pick writes no file
+            // Rename from the AI-generated name in the background; the row's
+            // label updates in place when it returns.
+            _ = await Self.rename(tempURL, in: folder)
+            await MainActor.run { self.reload() }
         }
     }
 
     // MARK: - History actions
+
+    /// Re-list the folder — history is the folder's contents, so it survives
+    /// restarts; call this when the tab appears to catch external changes.
+    func refresh() { reload() }
 
     func reveal(_ item: ScreenshotItem) {
         NSWorkspace.shared.activateFileViewerSelecting([item.url])
@@ -234,7 +243,8 @@ final class ScreenshotManager: ObservableObject {
             } catch {
                 return  // couldn't move (permissions, race) — leave it on the Desktop
             }
-            _ = await Self.rename(temp, in: folder)
+            await MainActor.run { self.reload() }   // appears instantly
+            _ = await Self.rename(temp, in: folder) // named in the background
             await MainActor.run { self.reload() }
         }
     }
@@ -267,15 +277,9 @@ final class ScreenshotManager: ObservableObject {
     /// final URL (unchanged if naming failed).
     private nonisolated static func rename(_ tempURL: URL, in folder: URL) async -> URL {
         guard let data = try? Data(contentsOf: tempURL) else { return tempURL }
-        let apiKey = await MainActor.run { APIKeyStore.shared.apiKey }
 
-        let raw: String
-        do {
-            raw = try await AnthropicService.shared.nameImage(
-                imageBase64: data.base64EncodedString(),
-                apiKey: apiKey
-            )
-        } catch {
+        // Swap `namer` (below) to change the backend — e.g. Apple Intelligence.
+        guard let raw = await namer.name(imageData: data) else {
             return tempURL  // keep the timestamp name; history still shows it
         }
 

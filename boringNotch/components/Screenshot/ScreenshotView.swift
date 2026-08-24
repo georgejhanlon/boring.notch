@@ -4,13 +4,17 @@
 //
 //  The Screenshot tab: capture buttons on the left (window / full screen — a
 //  shortcut for the macOS screenshot tools), a content-named history on the
-//  right. Screenshots are saved to ~/Desktop/Screenshots and auto-named.
+//  right. History rows are selectable (⌘/⇧ for multiple) and can be dragged
+//  out — onto the Shelf, Finder, or any app — as the underlying files.
 //
 
 import SwiftUI
 
 struct ScreenshotView: View {
     @StateObject private var manager = ScreenshotManager.shared
+
+    /// Multi-selection of history rows, keyed by file URL (the item id).
+    @State private var selection = Set<URL>()
 
     /// Set from ContentView so scroll/hover over the history suppresses the
     /// notch close gesture (mirrors the Clipboard/Checklist convention).
@@ -31,6 +35,7 @@ struct ScreenshotView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
+        .onAppear { manager.refresh() }
         .onContinuousHover { phase in
             switch phase {
             case .active: isHovering = true
@@ -47,27 +52,15 @@ struct ScreenshotView: View {
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
 
-            captureButton(
-                title: "Window",
-                systemImage: "macwindow",
-                mode: .window
-            )
-            captureButton(
-                title: "Full Screen",
-                systemImage: "rectangle.inset.filled",
-                mode: .fullScreen
-            )
+            captureButton(title: "Window", systemImage: "macwindow", mode: .window)
+            captureButton(title: "Full Screen", systemImage: "rectangle.inset.filled", mode: .fullScreen)
 
             Spacer(minLength: 0)
 
-            if manager.isBusy {
-                HStack(spacing: 6) {
-                    ProgressView().controlSize(.small)
-                    Text("Saving…")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.gray)
-                }
-            }
+            Text("Drag items to the Shelf or Finder. ⌘-click for more than one.")
+                .font(.system(size: 9))
+                .foregroundStyle(.gray)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(width: 130, alignment: .leading)
     }
@@ -120,61 +113,64 @@ struct ScreenshotView: View {
             if manager.items.isEmpty {
                 emptyState
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 5) {
-                        ForEach(manager.items) { item in
-                            row(item)
-                        }
+                List(selection: $selection) {
+                    ForEach(manager.items) { item in
+                        row(item)
+                            .draggable(item.url)
+                            .simultaneousGesture(
+                                TapGesture(count: 2).onEnded { manager.open(item) }
+                            )
+                            .contextMenu {
+                                Button("Open") { manager.open(item) }
+                                Button("Show in Finder") { manager.reveal(item) }
+                                Divider()
+                                Button("Delete", role: .destructive) { delete(item) }
+                            }
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets(top: 2, leading: 2, bottom: 2, trailing: 2))
+                            .listRowSeparator(.hidden)
                     }
-                    .padding(.vertical, 2)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
                 .scrollIndicators(.never)
+                .environment(\.defaultMinListRowHeight, 40)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func delete(_ item: ScreenshotItem) {
+        selection.remove(item.url)
+        manager.delete(item)
+    }
+
     private func row(_ item: ScreenshotItem) -> some View {
-        Button {
-            manager.open(item)
-        } label: {
-            HStack(spacing: 8) {
-                Group {
-                    if let image = manager.thumbnail(for: item) {
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    } else {
-                        Image(systemName: "photo")
-                            .foregroundStyle(.gray)
-                    }
-                }
-                .frame(width: 40, height: 28)
-                .clipShape(RoundedRectangle(cornerRadius: 5))
-
-                Text(item.name)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color(white: 0.9))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                Spacer(minLength: 4)
-
-                Button { manager.reveal(item) } label: {
-                    Image(systemName: "magnifyingglass")
-                        .font(.system(size: 10))
+        HStack(spacing: 8) {
+            Group {
+                if let image = manager.thumbnail(for: item) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else {
+                    Image(systemName: "photo")
                         .foregroundStyle(.gray)
                 }
-                .buttonStyle(.plain)
-                .help("Show in Finder")
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .frame(width: 40, height: 28)
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+
+            Text(item.name)
+                .font(.system(size: 11))
+                .foregroundStyle(Color(white: 0.9))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 0)
         }
-        .buttonStyle(.plain)
-        .help("Open screenshot")
+        .padding(.horizontal, 6)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
     }
 
     private var emptyState: some View {
