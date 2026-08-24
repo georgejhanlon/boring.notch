@@ -47,7 +47,20 @@ struct ContentView: View {
         // rounded corners stay within the window. Email's content is kept within
         // that budget so it never overflows/clips.
         if coordinator.currentView == .checklist { return nil }
+        // The AI chat can be grown by dragging the notch's bottom handle.
+        if coordinator.currentView == .claude { return vm.notchSize.height + aiChatExtraHeight }
         return vm.notchSize.height
+    }
+
+    /// Extra notch height contributed by the AI chat drag handle — only while the
+    /// AI chat is the open tab and the feature is enabled. Zero everywhere else,
+    /// so no other tab or the closed notch is affected.
+    private var aiChatExtraHeight: CGFloat {
+        guard vm.notchState == .open,
+              coordinator.currentView == .claude,
+              Defaults[.aiChatExpandableHeight]
+        else { return 0 }
+        return vm.aiChatExtraHeight
     }
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
@@ -276,8 +289,10 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height + aiChatExtraHeight, alignment: .top)
         .ignoresSafeArea(.all)
+        // Grow/shrink the borderless window itself so the expanded chat isn't clipped.
+        .background(NotchWindowHeightExpander(extraHeight: aiChatExtraHeight))
         .compositingGroup()
         .scaleEffect(
             x: gestureScale,

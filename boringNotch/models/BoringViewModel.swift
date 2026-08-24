@@ -35,6 +35,10 @@ class BoringViewModel: NSObject, ObservableObject {
 
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
+
+    /// Extra height (points) the user has dragged onto the open notch while in the
+    /// AI chat. Persisted so the preferred chat height survives relaunch.
+    @Published var aiChatExtraHeight: CGFloat = max(0, min(maxAIChatExtraHeight, CGFloat(Defaults[.aiChatExtraHeight])))
     
     let webcamManager = WebcamManager.shared
     @Published var isCameraExpanded: Bool = false

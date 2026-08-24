@@ -8,6 +8,7 @@
 //  open the notch is held open and made key so typing works.
 //
 
+import Defaults
 import SwiftUI
 
 extension Color {
@@ -23,6 +24,8 @@ struct ClaudeChatView: View {
 
     @State private var draft: String = ""
     @State private var pendingConfirm: PendingConfirm?
+    @State private var dragStartExtra: CGFloat?
+    @Default(.aiChatExpandableHeight) private var expandableHeight
     @FocusState private var inputFocused: Bool
 
     /// A destructive header action that clears the current chat — confirmed in-notch first.
@@ -36,6 +39,7 @@ struct ClaudeChatView: View {
             } else {
                 conversation
                 inputBar
+                if expandableHeight { resizeHandle }
             }
         }
         .padding(.horizontal, 14)
@@ -380,6 +384,34 @@ struct ClaudeChatView: View {
             .buttonStyle(.plain)
             .disabled(!canSend)
         }
+    }
+
+    // MARK: - Resize handle
+
+    /// A grabber at the very bottom of the notch. Dragging it down grows the chat,
+    /// up shrinks it; the preferred height is persisted. Only shown when the
+    /// "Adjustable chat height" setting is on.
+    private var resizeHandle: some View {
+        Capsule()
+            .fill(Color.white.opacity(0.28))
+            .frame(width: 40, height: 4)
+            .frame(maxWidth: .infinity)          // centre + widen the hit area
+            .padding(.top, 2)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { value in
+                        if dragStartExtra == nil { dragStartExtra = vm.aiChatExtraHeight }
+                        let base = dragStartExtra ?? 0
+                        let proposed = base + value.translation.height
+                        vm.aiChatExtraHeight = min(maxAIChatExtraHeight, max(0, proposed))
+                    }
+                    .onEnded { _ in
+                        dragStartExtra = nil
+                        Defaults[.aiChatExtraHeight] = Double(vm.aiChatExtraHeight)
+                    }
+            )
+            .help("Drag to resize the chat")
     }
 
     private var canSend: Bool {
