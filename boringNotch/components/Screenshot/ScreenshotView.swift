@@ -22,8 +22,10 @@ struct ScreenshotView: View {
     /// Delay (seconds) for the timed capture.
     @State private var timerSeconds = 5
 
-    /// Which target the timed capture hits — toggled by the window/full-screen switch.
-    @State private var timedMode: ScreenshotManager.Mode = .fullScreen
+    /// Which targets the timed capture hits. Independent toggles — arm either or
+    /// both; the capture only fires when the middle button is pressed.
+    @State private var armWindow = false
+    @State private var armFullScreen = true
 
     /// Row currently under the pointer (shows its delete control).
     @State private var hoveredItem: URL?
@@ -80,32 +82,32 @@ struct ScreenshotView: View {
         .frame(width: 164, alignment: .leading)
     }
 
-    /// Timed capture. A window/full-screen "lightswitch" (with a timer glyph in
-    /// the middle) picks the target — the selected side is highlighted light grey.
-    /// Tapping a side selects it and fires; tapping anywhere else fires the
-    /// currently-selected mode. An inline "+ N −" stepper sets the delay.
+    /// Timed capture. A window/full-screen "lightswitch" on the left arms either
+    /// or both targets (highlighted light grey when armed); the shutter button in
+    /// the middle actually fires the timed capture(s); the "+ N −" stepper on the
+    /// right sets the delay.
     private var timerButton: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 6) {
             HStack(spacing: 3) {
-                modeIcon("macwindow", mode: .window)
-                Image(systemName: "timer")
-                    .imageScale(.small)
-                    .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 18, height: 22)
-                modeIcon("rectangle.inset.filled", mode: .fullScreen)
+                modeIcon("macwindow", isOn: $armWindow)
+                modeIcon("rectangle.inset.filled", isOn: $armFullScreen)
             }
-            .contentShape(Rectangle())
-            .onTapGesture { manager.capture(timedMode, delay: timerSeconds) }
 
-            Spacer(minLength: 2)
+            Spacer(minLength: 4)
 
-            secondsStep("plus") { timerSeconds += 1 }
-            Text("\(timerSeconds)")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .frame(minWidth: 14)
-                .monospacedDigit()
-            secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
+            shutterButton
+
+            Spacer(minLength: 4)
+
+            HStack(spacing: 5) {
+                secondsStep("plus") { timerSeconds += 1 }
+                Text("\(timerSeconds)")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .frame(minWidth: 14)
+                    .monospacedDigit()
+                secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
+            }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
@@ -114,23 +116,35 @@ struct ScreenshotView: View {
         .opacity(manager.isBusy ? 0.5 : 1)
     }
 
-    /// One side of the timed-capture switch. Highlighted light grey when selected;
-    /// tapping selects that mode and starts the timed capture in it.
-    private func modeIcon(_ system: String, mode: ScreenshotManager.Mode) -> some View {
-        let selected = timedMode == mode
-        return Image(systemName: system)
+    /// One side of the arm switch. Light grey when armed; tapping toggles it.
+    private func modeIcon(_ system: String, isOn: Binding<Bool>) -> some View {
+        Image(systemName: system)
             .imageScale(.small)
-            .foregroundStyle(selected ? .white : .white.opacity(0.4))
+            .foregroundStyle(isOn.wrappedValue ? .white : .white.opacity(0.4))
             .frame(width: 24, height: 22)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(selected ? Color.white.opacity(0.22) : .clear)
+                    .fill(isOn.wrappedValue ? Color.white.opacity(0.22) : .clear)
             )
             .contentShape(Rectangle())
-            .onTapGesture {
-                timedMode = mode
-                manager.capture(mode, delay: timerSeconds)
-            }
+            .onTapGesture { isOn.wrappedValue.toggle() }
+    }
+
+    /// The centre shutter: fires a timed capture for each armed target.
+    private var shutterButton: some View {
+        Button {
+            if armFullScreen { manager.capture(.fullScreen, delay: timerSeconds) }
+            if armWindow { manager.capture(.window, delay: timerSeconds) }
+        } label: {
+            Image(systemName: "rectangle.dashed")
+                .imageScale(.medium)
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 22)
+                .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Color.white.opacity(0.16)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!(armWindow || armFullScreen))
+        .help("Take the timed screenshot")
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
