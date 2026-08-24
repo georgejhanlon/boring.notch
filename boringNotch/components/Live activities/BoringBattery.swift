@@ -76,6 +76,23 @@ struct BatteryView: View {
     }
 }
 
+/// Large, full-width menu button with a light-grey pressed state.
+struct BatteryMenuButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.subheadline)
+            .fontWeight(.medium)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(
+                RoundedRectangle(cornerRadius: 9)
+                    .fill(configuration.isPressed ? Color.white.opacity(0.28) : Color.white.opacity(0.08))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 9))
+    }
+}
+
 struct ScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -198,21 +215,17 @@ struct BatteryMenuView: View {
 
             Divider().background(Color.white)
 
-            Button(action: openAppSettings) {
-                Label("Settings", systemImage: "gearshape.fill")
-                    .fontWeight(.regular)
-            }
-            .frame(maxWidth: .infinity)
-            .buttonStyle(.plain)
-            .padding(.vertical, 8)
+            VStack(spacing: 8) {
+                Button(action: openAppSettings) {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+                .buttonStyle(BatteryMenuButtonStyle())
 
-            Button(action: openBatteryPreferences) {
-                Label("Battery Settings", systemImage: "gearshape")
-                    .fontWeight(.regular)
+                Button(action: openBatteryPreferences) {
+                    Label("Battery Settings", systemImage: "gearshape")
+                }
+                .buttonStyle(BatteryMenuButtonStyle())
             }
-            .frame(maxWidth: .infinity)
-            .buttonStyle(.plain)
-            .padding(.vertical, 8)
         }
         .padding()
         .frame(width: 280)
