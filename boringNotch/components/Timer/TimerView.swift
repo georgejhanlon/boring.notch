@@ -63,6 +63,18 @@ struct TimerView: View {
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(.gray)
             }
+            Button {
+                timer.dndDuringFocus.toggle()
+            } label: {
+                Image(systemName: timer.dndDuringFocus ? "moon.fill" : "moon")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(timer.dndDuringFocus ? Color.claudeOrange : .gray)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.white.opacity(0.12)))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .help(timer.dndDuringFocus ? "Do Not Disturb on during focus" : "Enable Do Not Disturb during focus")
         }
     }
 

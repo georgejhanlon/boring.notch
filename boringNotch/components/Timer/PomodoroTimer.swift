@@ -8,6 +8,7 @@
 
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
 
 @MainActor
@@ -29,6 +30,14 @@ final class PomodoroTimer: ObservableObject {
     /// Length of each phase in minutes; adjustable from the UI.
     @Published var workMinutes: Int = 25 { didSet { if phase == .work, !isRunning { resetPhaseDuration() } } }
     @Published var breakMinutes: Int = 5 { didSet { if phase == .breakTime, !isRunning { resetPhaseDuration() } } }
+
+    /// Turn on Do Not Disturb while a focus phase is running (persisted).
+    @Published var dndDuringFocus: Bool = Defaults[.focusTimerDND] {
+        didSet {
+            Defaults[.focusTimerDND] = dndDuringFocus
+            syncDND()
+        }
+    }
 
     private var ticker: AnyCancellable?
 
@@ -57,12 +66,14 @@ final class PomodoroTimer: ObservableObject {
         ticker = Timer.publish(every: 1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.tick() }
+        syncDND()
     }
 
     func pause() {
         isRunning = false
         ticker?.cancel()
         ticker = nil
+        syncDND()
     }
 
     func reset() {
@@ -108,5 +119,12 @@ final class PomodoroTimer: ObservableObject {
         resetPhaseDuration()
         // Keep running into the next phase if it played through naturally.
         if !playedThrough { pause() }
+        syncDND()
+    }
+
+    /// Enable DND only while a focus phase is actively running.
+    private func syncDND() {
+        let shouldEnable = dndDuringFocus && isRunning && phase == .work
+        FocusDNDController.shared.setEnabled(shouldEnable)
     }
 }

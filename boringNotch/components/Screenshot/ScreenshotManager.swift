@@ -35,12 +35,38 @@ final class ScreenshotManager: ObservableObject {
     /// ~/Desktop/Screenshots — created on first use.
     private let folder: URL
 
+    /// Where macOS itself saves ⌘⇧3/4 screenshots (default: Desktop).
+    private let systemScreenshotDir: URL
+    /// The prefix macOS uses for screenshot filenames (default: "Screenshot").
+    private let systemScreenshotPrefix: String
+
+    static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "gif", "tiff", "pdf"]
+
+    // Native-screenshot watcher state.
+    private var watcher: DispatchSourceFileSystemObject?
+    private var watchedFD: Int32 = -1
+    /// Filenames already present/handled in the system folder, so we only pick
+    /// up genuinely new captures.
+    private var seenSystemFiles: Set<String> = []
+    private var rescanTask: Task<Void, Never>?
+
     private init() {
         let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
             ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Desktop")
         folder = desktop.appendingPathComponent("Screenshots", isDirectory: true)
+
+        // Resolve the macOS screenshot save location + name prefix.
+        systemScreenshotDir = Self.resolveSystemScreenshotDir(fallback: desktop)
+        systemScreenshotPrefix = Self.resolveSystemScreenshotPrefix()
+
         ensureFolder()
         reload()
+        startWatchingSystemScreenshots()
+    }
+
+    deinit {
+        watcher?.cancel()
+        if watchedFD >= 0 { close(watchedFD) }
     }
 
     // MARK: - Capture
@@ -123,7 +149,7 @@ final class ScreenshotManager: ObservableObject {
         )) ?? []
 
         items = urls
-            .filter { $0.pathExtension.lowercased() == "png" }
+            .filter { Self.imageExtensions.contains($0.pathExtension.lowercased()) }
             .map { url -> ScreenshotItem in
                 let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?
                     .contentModificationDate ?? .distantPast
@@ -131,6 +157,108 @@ final class ScreenshotManager: ObservableObject {
                 return ScreenshotItem(id: url, url: url, name: name, date: date)
             }
             .sorted { $0.date > $1.date }
+    }
+
+    // MARK: - Native screenshot watching (⌘⇧3 / ⌘⇧4)
+
+    /// Watches the macOS screenshot folder and pulls new captures into our
+    /// folder, so shots taken with the system shortcut are named and listed too.
+    private func startWatchingSystemScreenshots() {
+        // If macOS already saves into our folder, our own pipeline handles it.
+        guard systemScreenshotDir.standardizedFileURL != folder.standardizedFileURL else { return }
+
+        // Baseline: everything already there is "seen" — only react to new files.
+        seenSystemFiles = Set(currentSystemFilenames())
+
+        let fd = Darwin.open(systemScreenshotDir.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        watchedFD = fd
+
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .rename],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            self?.scheduleSystemScan()
+        }
+        source.setCancelHandler { [weak self] in
+            if let fd = self?.watchedFD, fd >= 0 { close(fd) }
+            self?.watchedFD = -1
+        }
+        watcher = source
+        source.resume()
+    }
+
+    /// Debounce bursts of filesystem events and give the file time to finish
+    /// writing before we touch it.
+    private func scheduleSystemScan() {
+        rescanTask?.cancel()
+        rescanTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            await self?.scanSystemScreenshots()
+        }
+    }
+
+    private func scanSystemScreenshots() {
+        let current = currentSystemFilenames()
+        let newNames = Set(current).subtracting(seenSystemFiles)
+        seenSystemFiles.formUnion(current)
+
+        for name in newNames where isSystemScreenshot(name) {
+            ingestExternal(systemScreenshotDir.appendingPathComponent(name))
+        }
+    }
+
+    private func currentSystemFilenames() -> [String] {
+        (try? FileManager.default.contentsOfDirectory(atPath: systemScreenshotDir.path)) ?? []
+    }
+
+    private func isSystemScreenshot(_ name: String) -> Bool {
+        let lower = name.lowercased()
+        let ext = (name as NSString).pathExtension.lowercased()
+        return lower.hasPrefix(systemScreenshotPrefix.lowercased()) && Self.imageExtensions.contains(ext)
+    }
+
+    /// Moves an externally-captured screenshot into our folder, then names it.
+    private func ingestExternal(_ url: URL) {
+        let ext = url.pathExtension.isEmpty ? "png" : url.pathExtension
+        let stamp = Self.timestampFormatter.string(from: Date())
+        let temp = folder.appendingPathComponent("Screenshot \(stamp) \(UUID().uuidString.prefix(4)).\(ext)")
+
+        Task.detached { [folder] in
+            guard FileManager.default.fileExists(atPath: url.path) else { return }
+            do {
+                try FileManager.default.moveItem(at: url, to: temp)
+            } catch {
+                return  // couldn't move (permissions, race) — leave it on the Desktop
+            }
+            _ = await Self.rename(temp, in: folder)
+            await MainActor.run { self.reload() }
+        }
+    }
+
+    // MARK: - Resolving the macOS screenshot location
+
+    private nonisolated static func resolveSystemScreenshotDir(fallback: URL) -> URL {
+        if let raw = CFPreferencesCopyAppValue("location" as CFString, "com.apple.screencapture" as CFString) as? String,
+           !raw.isEmpty {
+            let expanded = (raw as NSString).expandingTildeInPath
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue {
+                return URL(fileURLWithPath: expanded, isDirectory: true)
+            }
+        }
+        return fallback
+    }
+
+    private nonisolated static func resolveSystemScreenshotPrefix() -> String {
+        if let name = CFPreferencesCopyAppValue("name" as CFString, "com.apple.screencapture" as CFString) as? String,
+           !name.isEmpty {
+            return name
+        }
+        return "Screenshot"
     }
 
     // MARK: - Naming
@@ -154,7 +282,7 @@ final class ScreenshotManager: ObservableObject {
         let base = sanitize(raw)
         guard !base.isEmpty else { return tempURL }
 
-        let target = uniqueURL(for: base, in: folder)
+        let target = uniqueURL(for: base, ext: tempURL.pathExtension, in: folder)
         do {
             try FileManager.default.moveItem(at: tempURL, to: target)
             return target
@@ -175,11 +303,12 @@ final class ScreenshotManager: ObservableObject {
     }
 
     /// Appends " 2", " 3", … if a file with the base name already exists.
-    private nonisolated static func uniqueURL(for base: String, in folder: URL) -> URL {
-        var candidate = folder.appendingPathComponent("\(base).png")
+    private nonisolated static func uniqueURL(for base: String, ext: String, in folder: URL) -> URL {
+        let suffix = ext.isEmpty ? "png" : ext
+        var candidate = folder.appendingPathComponent("\(base).\(suffix)")
         var n = 2
         while FileManager.default.fileExists(atPath: candidate.path) {
-            candidate = folder.appendingPathComponent("\(base) \(n).png")
+            candidate = folder.appendingPathComponent("\(base) \(n).\(suffix)")
             n += 1
         }
         return candidate

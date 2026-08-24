@@ -316,6 +316,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Begin watching the pasteboard for the Clipboard history tab.
         ClipboardManager.shared.start()
 
+        // Begin watching for native ⌘⇧3/4 screenshots so they're named/foldered
+        // even when captured without the notch button.
+        _ = ScreenshotManager.shared
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(screenConfigurationDidChange),

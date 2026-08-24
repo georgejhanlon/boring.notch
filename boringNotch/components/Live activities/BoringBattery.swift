@@ -199,9 +199,7 @@ struct BatteryMenuView: View {
             Divider().background(Color.white)
 
             Button(action: openAppSettings) {
-                // TODO: Placeholder icon — replace "square.dashed" with the
-                // final Settings icon once it's ready.
-                Label("Settings", systemImage: "square.dashed")
+                Label("Settings", systemImage: "gearshape.fill")
                     .fontWeight(.regular)
             }
             .frame(maxWidth: .infinity)
