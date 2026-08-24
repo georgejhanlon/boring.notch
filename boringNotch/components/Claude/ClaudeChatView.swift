@@ -183,12 +183,15 @@ struct ClaudeChatView: View {
         store.backend == .claude ? .appleIntelligence : .claude
     }
 
-    /// User bubble / send accent: Claude orange, or iMessage blue for Apple Intelligence.
-    private var userAccent: Color {
-        store.backend == .appleIntelligence
+    /// Accent per backend: Claude orange, or iMessage blue for Apple Intelligence.
+    private func accent(for backend: ChatBackend) -> Color {
+        backend == .appleIntelligence
             ? Color(red: 0.0, green: 0.478, blue: 1.0)
             : .claudeOrange
     }
+
+    /// User bubble / send accent for the current backend.
+    private var userAccent: Color { accent(for: store.backend) }
 
     private func performBackendSwitch() {
         let next = otherBackend
@@ -235,7 +238,7 @@ struct ClaudeChatView: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 14).padding(.vertical, 6)
-                            .background(Capsule().fill(Color.claudeOrange))
+                            .background(Capsule().fill(accent(for: otherBackend)))
                     }
                     .buttonStyle(.plain)
                 }
