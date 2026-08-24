@@ -105,11 +105,10 @@ struct ClaudeChatView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Menu {
-                Picker("Model", selection: $store.backend) {
-                    ForEach(ChatBackend.allCases) { backend in
-                        Text(backend.title).tag(backend)
-                    }
+            // One-click switch between Claude and on-device Apple Intelligence.
+            Button {
+                withAnimation(.smooth) {
+                    store.backend = (store.backend == .claude ? .appleIntelligence : .claude)
                 }
             } label: {
                 HStack(spacing: 5) {
@@ -117,16 +116,14 @@ struct ClaudeChatView: View {
                     Text(store.backend.title)
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .foregroundStyle(.white)
-                    Image(systemName: "chevron.up.chevron.down")
+                    Image(systemName: "arrow.left.arrow.right")
                         .font(.system(size: 8, weight: .semibold))
                         .foregroundStyle(.gray)
                 }
                 .contentShape(Rectangle())
             }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help("Switch the chat model")
+            .buttonStyle(.plain)
+            .help("Switch chat model (Claude ⇄ Apple Intelligence)")
 
             Button {
                 // Summarise whatever's on the clipboard (the notch is key while
