@@ -27,6 +27,7 @@ public enum NotchViews {
     case clipboard
     case timer
     case summarise
+    case screenshot
 }
 
 enum DownloadIndicatorStyle: String, Defaults.Serializable {

@@ -12,7 +12,6 @@ struct BoringHeader: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = BoringViewCoordinator.shared
-    @ObservedObject var settingsWindow = SettingsWindowState.shared
     @StateObject var tvm = ShelfStateViewModel.shared
     var body: some View {
         HStack(spacing: 0) {
@@ -92,30 +91,6 @@ struct BoringHeader: View {
                                     .overlay {
                                         Image(systemName: "web.camera")
                                             .foregroundColor(vm.isCameraExpanded ? .green : .gray)
-                                            .padding()
-                                            .imageScale(.medium)
-                                    }
-                            }
-                            .buttonStyle(PlainButtonStyle())
-                        }
-                        if Defaults[.settingsIconInNotch] {
-                            Button(action: {
-                                DispatchQueue.main.async {
-                                    // Toggle: close the settings window if it's
-                                    // already open, otherwise show it.
-                                    if settingsWindow.isOpen {
-                                        SettingsWindowController.shared.close()
-                                    } else {
-                                        SettingsWindowController.shared.showWindow()
-                                    }
-                                }
-                            }) {
-                                Capsule()
-                                    .fill(settingsWindow.isOpen ? Color(nsColor: .secondarySystemFill) : .black)
-                                    .frame(width: 30, height: 30)
-                                    .overlay {
-                                        Image(systemName: "gear")
-                                            .foregroundColor(settingsWindow.isOpen ? .white : .gray)
                                             .padding()
                                             .imageScale(.medium)
                                     }

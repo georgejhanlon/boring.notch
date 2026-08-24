@@ -359,6 +359,7 @@
 		11EC0DE00000000000001001 /* Timer */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Timer; sourceTree = "<group>"; };
 		11EC0DE00000000000001101 /* Clipboard */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Clipboard; sourceTree = "<group>"; };
 		11EC0DE00000000000001201 /* Summarise */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Summarise; sourceTree = "<group>"; };
+		11EC0DE00000000000001301 /* Screenshot */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Screenshot; sourceTree = "<group>"; };
 		11F748502EC9AABA00F841DB /* BoringNotchXPCHelper */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (11F7485C2EC9AABA00F841DB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = BoringNotchXPCHelper; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -601,6 +602,7 @@
 				11EC0DE00000000000001001 /* Timer */,
 				11EC0DE00000000000001101 /* Clipboard */,
 				11EC0DE00000000000001201 /* Summarise */,
+				11EC0DE00000000000001301 /* Screenshot */,
 				149E0B982C737D26006418B1 /* Webcam */,
 				B18654312C6F45AE000B926A /* Live activities */,
 				B18654302C6F4590000B926A /* Settings */,
@@ -902,6 +904,7 @@
 				11EC0DE00000000000001001 /* Timer */,
 				11EC0DE00000000000001101 /* Clipboard */,
 				11EC0DE00000000000001201 /* Summarise */,
+				11EC0DE00000000000001301 /* Screenshot */,
 			);
 			name = boringNotch;
 			packageProductDependencies = (

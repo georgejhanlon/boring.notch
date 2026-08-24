@@ -198,6 +198,16 @@ struct BatteryMenuView: View {
 
             Divider().background(Color.white)
 
+            Button(action: openAppSettings) {
+                // TODO: Placeholder icon — replace "square.dashed" with the
+                // final Settings icon once it's ready.
+                Label("Settings", systemImage: "square.dashed")
+                    .fontWeight(.regular)
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
+            .padding(.vertical, 8)
+
             Button(action: openBatteryPreferences) {
                 Label("Battery Settings", systemImage: "gearshape")
                     .fontWeight(.regular)
@@ -209,6 +219,11 @@ struct BatteryMenuView: View {
         .padding()
         .frame(width: 280)
         .foregroundColor(.white)
+    }
+
+    private func openAppSettings() {
+        SettingsWindowController.shared.showWindow()
+        onDismiss()
     }
 
     private func openBatteryPreferences() {

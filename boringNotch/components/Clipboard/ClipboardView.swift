@@ -12,6 +12,14 @@ struct ClipboardView: View {
     @StateObject private var manager = ClipboardManager.shared
     @State private var justCopied: UUID?
 
+    /// Set from ContentView so scroll/hover over the history suppresses the notch
+    /// close gesture (mirrors the Checklist/Calendar convention).
+    @Binding var isHovering: Bool
+
+    init(isHovering: Binding<Bool> = .constant(false)) {
+        self._isHovering = isHovering
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             header
@@ -25,6 +33,13 @@ struct ClipboardView: View {
         .padding(.top, 4)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onContinuousHover { phase in
+            switch phase {
+            case .active: isHovering = true
+            case .ended: isHovering = false
+            }
+        }
     }
 
     private var header: some View {

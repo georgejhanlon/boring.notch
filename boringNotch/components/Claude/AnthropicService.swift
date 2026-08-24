@@ -78,6 +78,56 @@ struct AnthropicService {
         try await run(system: system, messages: [["role": "user", "content": content]], apiKey: apiKey, onDelta: onDelta)
     }
 
+    /// Names a screenshot by its content in a few words. Non-streaming — the
+    /// reply is short, so there's no timeout risk. Returns a plain phrase
+    /// (letters/numbers/spaces/hyphens); the caller turns it into a filename.
+    ///
+    /// TODO: swap this Anthropic call for on-device Apple Intelligence naming
+    /// once that's wired up; the call site only needs a String back.
+    func nameImage(imageBase64: String, apiKey: String) async throws -> String {
+        guard !apiKey.trimmingCharacters(in: .whitespaces).isEmpty else { throw AnthropicError.missingKey }
+
+        let content: [[String: Any]] = [
+            ["type": "image", "source": ["type": "base64", "media_type": "image/png", "data": imageBase64]],
+            ["type": "text", "text": "Give a short descriptive name (3–6 words) for what this screenshot shows. Use only letters, numbers, spaces and hyphens — no file extension, no quotes, no other punctuation."],
+        ]
+        let payload: [String: Any] = [
+            "model": model,
+            "max_tokens": 64,
+            "system": "You name screenshots by their content. Reply with ONLY the name — a few words, no preamble, no file extension, no quotes.",
+            "messages": [["role": "user", "content": content]],
+        ]
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (data, response): (Data, URLResponse)
+        do {
+            (data, response) = try await URLSession.shared.data(for: request)
+        } catch {
+            throw AnthropicError.transport(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw AnthropicError.transport("No response from Claude.")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AnthropicError.http(http.statusCode, Self.extractErrorMessage(String(data: data, encoding: .utf8) ?? ""))
+        }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let blocks = obj["content"] as? [[String: Any]] else {
+            throw AnthropicError.transport("Unexpected response from Claude.")
+        }
+        let text = blocks
+            .compactMap { ($0["type"] as? String) == "text" ? $0["text"] as? String : nil }
+            .joined()
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Shared streaming request
 
     private func run(

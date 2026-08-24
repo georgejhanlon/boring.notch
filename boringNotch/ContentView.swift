@@ -28,6 +28,8 @@ struct ContentView: View {
     @ObservedObject var pomodoro = PomodoroTimer.shared
     @Default(.checklistAlwaysOn) var checklistAlwaysOn
     @State private var isHoveringChecklist = false
+    @State private var isHoveringClipboard = false
+    @State private var isHoveringScreenshot = false
 
     /// Whether the compact always-on checklist strip is currently shown inside
     /// the closed notch. While active, hover/tap must not auto-open the notch —
@@ -460,7 +462,9 @@ struct ContentView: View {
                     case .claude:
                         ClaudeChatView()
                     case .clipboard:
-                        ClipboardView()
+                        ClipboardView(isHovering: $isHoveringClipboard)
+                    case .screenshot:
+                        ScreenshotView(isHovering: $isHoveringScreenshot)
                     case .timer:
                         TimerView()
                     case .summarise:
@@ -750,7 +754,7 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar && !isHoveringChecklist else { return }
+        guard vm.notchState == .open && !vm.isHoveringCalendar && !isHoveringChecklist && !isHoveringClipboard && !isHoveringScreenshot else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
