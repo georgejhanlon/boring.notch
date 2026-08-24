@@ -69,6 +69,21 @@ enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
     }
 }
 
+/// Which model backs the in-notch chat.
+enum ChatBackend: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case claude
+    case appleIntelligence
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .claude: return "Claude"
+        case .appleIntelligence: return "Apple Intelligence"
+        }
+    }
+}
+
 /// What the notch does while a ⌘⇧4 Selection screenshot is being taken.
 enum ScreenshotSelectionNotchBehavior: String, CaseIterable, Identifiable, Defaults.Serializable {
     case include   // leave the notch visible (it may appear in the shot)

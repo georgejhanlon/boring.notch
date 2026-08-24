@@ -27,7 +27,7 @@ struct ClaudeChatView: View {
     var body: some View {
         VStack(spacing: 6) {
             header
-            if !keyStore.hasKey {
+            if store.backend == .claude && !keyStore.hasKey {
                 setupPrompt
             } else {
                 conversation
@@ -105,10 +105,28 @@ struct ClaudeChatView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            ClaudeMark(size: 15, color: .claudeOrange)
-            Text("Claude")
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(.white)
+            Menu {
+                Picker("Model", selection: $store.backend) {
+                    ForEach(ChatBackend.allCases) { backend in
+                        Text(backend.title).tag(backend)
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    backendIcon
+                    Text(store.backend.title)
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundStyle(.white)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.gray)
+                }
+                .contentShape(Rectangle())
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Switch the chat model")
 
             Button {
                 // Summarise whatever's on the clipboard (the notch is key while
@@ -156,6 +174,17 @@ struct ClaudeChatView: View {
         }
     }
 
+    @ViewBuilder private var backendIcon: some View {
+        switch store.backend {
+        case .claude:
+            ClaudeMark(size: 14, color: .claudeOrange)
+        case .appleIntelligence:
+            Image(systemName: "sparkles")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.claudeOrange)
+        }
+    }
+
     // MARK: - Conversation
 
     private var conversation: some View {
@@ -189,7 +218,7 @@ struct ClaudeChatView: View {
     }
 
     private var emptyState: some View {
-        Text("Ask Claude anything")
+        Text("Ask \(store.backend.title) anything")
             .font(.system(size: 12, weight: .semibold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity, alignment: .center)
@@ -219,7 +248,7 @@ struct ClaudeChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 8) {
-            TextField("Message Claude…", text: $draft, axis: .vertical)
+            TextField("Message \(store.backend.title)…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
                 .foregroundStyle(.white)

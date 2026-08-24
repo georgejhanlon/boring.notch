@@ -7,6 +7,7 @@
 //  notch within a session.
 //
 
+import Defaults
 import Foundation
 
 @MainActor
@@ -16,6 +17,16 @@ final class ClaudeChatStore: ObservableObject {
     @Published private(set) var messages: [ChatMessage] = []
     @Published private(set) var isStreaming = false
     @Published var errorText: String?
+
+    /// Which model answers. Persisted; switching starts a fresh on-device context.
+    @Published var backend: ChatBackend = Defaults[.chatBackend] {
+        didSet {
+            Defaults[.chatBackend] = backend
+            aiChat.reset()
+        }
+    }
+
+    private let aiChat = AppleIntelligenceChat()
 
     private init() {}
 
@@ -43,6 +54,23 @@ final class ClaudeChatStore: ObservableObject {
         let replyIndex = messages.count
         messages.append(ChatMessage(role: .assistant, text: ""))
         isStreaming = true
+
+        // On-device Apple Intelligence path (no streaming — sets the full reply).
+        if backend == .appleIntelligence {
+            Task {
+                do {
+                    let reply = try await aiChat.respond(to: trimmed)
+                    if messages.indices.contains(replyIndex) { messages[replyIndex].text = reply }
+                } catch {
+                    errorText = error.localizedDescription
+                }
+                if messages.indices.contains(replyIndex), messages[replyIndex].text.isEmpty {
+                    messages.remove(at: replyIndex)
+                }
+                isStreaming = false
+            }
+            return
+        }
 
         let history = Array(messages[..<replyIndex])
         let apiKey = APIKeyStore.shared.apiKey

@@ -236,6 +236,7 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let focusTimerDND = Key<Bool>("focusTimerDND", default: false)
     static let screenshotSelectionNotchBehavior = Key<ScreenshotSelectionNotchBehavior>("screenshotSelectionNotchBehavior", default: .hide)
+    static let chatBackend = Key<ChatBackend>("chatBackend", default: .claude)
     static let openNotchOnHover = Key<Bool>("openNotchOnHover", default: true)
     static let extendHoverArea = Key<Bool>("extendHoverArea", default: false)
     static let notchHeightMode = Key<WindowHeightMode>(

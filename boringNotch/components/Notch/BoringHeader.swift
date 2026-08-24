@@ -75,11 +75,13 @@ struct BoringHeader: View {
                                 .fill(coordinator.currentView == .claude ? Color(nsColor: .secondarySystemFill) : .black)
                                 .frame(width: 30, height: 30)
                                 .overlay {
-                                    ClaudeMark(size: 15, color: coordinator.currentView == .claude ? .claudeOrange : .gray)
+                                    Image(systemName: "sparkles")
+                                        .foregroundColor(coordinator.currentView == .claude ? .claudeOrange : .gray)
+                                        .imageScale(.medium)
                                 }
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .help("Claude")
+                        .help("AI")
 
                         if Defaults[.showMirror] {
                             Button(action: {

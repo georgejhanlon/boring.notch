@@ -25,6 +25,9 @@ struct ScreenshotView: View {
     /// Row currently under the pointer (shows its delete control).
     @State private var hoveredItem: URL?
 
+    /// History layout: list rows vs. an icon grid.
+    @State private var isGridView = false
+
     /// Set from ContentView so scroll/hover over the history suppresses the
     /// notch close gesture (mirrors the Clipboard/Checklist convention).
     @Binding var isHovering: Bool
@@ -149,6 +152,12 @@ struct ScreenshotView: View {
                         .foregroundStyle(.gray)
                 }
                 Spacer()
+                Button { isGridView.toggle() } label: {
+                    Image(systemName: isGridView ? "list.bullet" : "square.grid.2x2")
+                        .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(isGridView ? "List view" : "Icon view")
                 Button { manager.openFolder() } label: {
                     Image(systemName: "folder")
                         .imageScale(.small).foregroundStyle(.gray).contentShape(Rectangle())
@@ -159,6 +168,8 @@ struct ScreenshotView: View {
 
             if manager.items.isEmpty {
                 emptyState
+            } else if isGridView {
+                gridView
             } else {
                 ScrollView {
                     LazyVStack(spacing: 5) {
@@ -230,6 +241,81 @@ struct ScreenshotView: View {
                     .padding(.trailing, 8)
                 }
             }
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            if hovering { hoveredItem = item.url }
+            else if hoveredItem == item.url { hoveredItem = nil }
+        }
+    }
+
+    // MARK: - Grid
+
+    private var gridView: some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(manager.items) { item in
+                    gridCell(item)
+                }
+            }
+            .padding(.vertical, 2)
+            .padding(.trailing, 6)
+        }
+        .scrollIndicators(.never)
+    }
+
+    private func gridCell(_ item: ScreenshotItem) -> some View {
+        let selected = selection.contains(item.url)
+        let hovered = hoveredItem == item.url
+        return VStack(spacing: 3) {
+            ZStack {
+                Group {
+                    if let image = manager.thumbnail(for: item) {
+                        Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        Image(systemName: "photo").foregroundStyle(.gray)
+                    }
+                }
+                .frame(width: 80, height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(selected ? Color.accentColor : Color.white.opacity(0.08),
+                                lineWidth: selected ? 2 : 1)
+                )
+
+                ScreenshotRowInteraction(
+                    isSelected: { selection.contains(item.url) },
+                    onSelect: { mods in handleSelect(item, modifiers: mods) },
+                    onOpen: { manager.open(item) },
+                    onReveal: { manager.reveal(item) },
+                    onDelete: { delete(item) },
+                    dragURLs: { dragURLs(for: item) },
+                    preview: { manager.thumbnail(for: item) }
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                if hovered {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            HoldToDeleteButton(duration: 1, help: "Hold to delete") { delete(item) }
+                                .frame(width: 20, height: 20)
+                                .background(Circle().fill(.black.opacity(0.6)))
+                                .padding(4)
+                        }
+                        Spacer()
+                    }
+                }
+            }
+            .frame(width: 80, height: 50)
+
+            Text(item.name)
+                .font(.system(size: 9))
+                .foregroundStyle(Color(white: 0.85))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(width: 80)
         }
         .contentShape(Rectangle())
         .onHover { hovering in
