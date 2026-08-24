@@ -84,47 +84,47 @@ struct ScreenshotView: View {
     /// the target (light grey = selected); the "+ N −" stepper on the right sets
     /// the delay; clicking anywhere in between fires the timed capture.
     private var timerButton: some View {
-        HStack(spacing: 6) {
-            HStack(spacing: 3) {
-                modeIcon("rectangle.dashed", mode: .window)
-                modeIcon("rectangle.inset.filled", mode: .fullScreen)
-            }
+        HStack(spacing: 4) {
+            modeIcon("rectangle.dashed", mode: .window)
+            modeIcon("rectangle.inset.filled", mode: .fullScreen)
 
-            // The middle is the shutter: pressing it greys, then fires the timed
-            // capture in the selected mode on release.
+            // The middle is the shutter: pressing it greys the whole segment, then
+            // fires the timed capture in the selected mode on release.
             Button { manager.capture(timedMode, delay: timerSeconds) } label: {
-                Color.clear.frame(maxWidth: .infinity, minHeight: 22)
+                Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity).contentShape(Rectangle())
             }
             .buttonStyle(PressFillStyle(pressed: 0.20))
 
             HStack(spacing: 5) {
-                secondsStep("plus") { timerSeconds += 1 }
+                secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
                 Text("\(timerSeconds)")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .frame(minWidth: 14)
                     .monospacedDigit()
-                secondsStep("minus") { timerSeconds = max(1, timerSeconds - 1) }
+                secondsStep("plus") { timerSeconds += 1 }
             }
         }
+        .frame(height: 34)
         .foregroundStyle(.white)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
         .opacity(manager.isBusy ? 0.5 : 1)
     }
 
     /// One position of the two-way switch. Light grey when selected, greyer while
-    /// pressed; tapping selects that mode (it does not capture — the middle does).
+    /// pressed (the fill covers the whole segment); tapping selects that mode — it
+    /// does not capture (the middle does).
     private func modeIcon(_ system: String, mode: ScreenshotManager.Mode) -> some View {
         let selected = timedMode == mode
         return Button { timedMode = mode } label: {
             Image(systemName: system)
                 .imageScale(.small)
                 .foregroundStyle(selected ? .white : .white.opacity(0.4))
-                .frame(width: 24, height: 22)
+                .frame(width: 30)
+                .frame(maxHeight: .infinity)
         }
-        .buttonStyle(PressFillStyle(base: selected ? 0.22 : 0, pressed: 0.34))
+        .buttonStyle(PressFillStyle(base: selected ? 0.22 : 0, pressed: 0.34, cornerRadius: 7))
     }
 
     private func secondsStep(_ system: String, action: @escaping () -> Void) -> some View {
