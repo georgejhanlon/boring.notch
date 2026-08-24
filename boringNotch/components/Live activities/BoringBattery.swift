@@ -229,6 +229,7 @@ struct BatteryMenuView: View {
         }
         .padding()
         .frame(width: 280)
+        .fixedSize(horizontal: false, vertical: true)
         .foregroundColor(.white)
     }
 
