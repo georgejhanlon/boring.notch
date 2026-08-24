@@ -40,8 +40,8 @@ struct ScreenshotView: View {
             historyColumn
         }
         .padding(.horizontal, 14)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .onAppear { manager.refresh() }
@@ -56,7 +56,7 @@ struct ScreenshotView: View {
     // MARK: - Left: capture buttons
 
     private var captureColumn: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("Capture")
                 .font(.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(.white)
@@ -98,7 +98,7 @@ struct ScreenshotView: View {
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
         .opacity(manager.isBusy ? 0.5 : 1)
     }
@@ -126,7 +126,7 @@ struct ScreenshotView: View {
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
-            .padding(.vertical, 8)
+            .padding(.vertical, 6)
             .background(RoundedRectangle(cornerRadius: 9).fill(Color.white.opacity(0.08)))
             .contentShape(RoundedRectangle(cornerRadius: 9))
         }
