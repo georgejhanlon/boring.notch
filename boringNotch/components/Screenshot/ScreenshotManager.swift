@@ -10,7 +10,14 @@
 
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
+
+extension Notification.Name {
+    /// Posted to ask any open notch to collapse (used by the Screenshot
+    /// "Close the notch first" setting).
+    static let closeNotchRequested = Notification.Name("closeNotchRequested")
+}
 
 /// One saved screenshot on disk.
 struct ScreenshotItem: Identifiable, Equatable {
@@ -45,6 +52,9 @@ final class ScreenshotManager: ObservableObject {
     /// unlike JPEG — so it works when pasted onto the folder via Get Info).
     /// Excluded from history.
     private let iconFilename = "Folder Icon.png"
+
+    /// Notch window alphas saved while hidden for a Selection capture.
+    private var savedNotchAlphas: [(NSWindow, CGFloat)] = []
 
     /// Where macOS itself saves ⌘⇧3/4 screenshots (default: Desktop).
     private let systemScreenshotDir: URL
@@ -107,6 +117,19 @@ final class ScreenshotManager: ObservableObject {
         if delay > 0 { args += ["-T", String(delay)] }  // -T: capture after N seconds
         args.append(tempURL.path)
 
+        // Selection captures can hide/close the notch so it stays out of frame.
+        if mode == .window {
+            switch Defaults[.screenshotSelectionNotchBehavior] {
+            case .include:
+                break
+            case .hide:
+                hideNotch()
+            case .close:
+                hideNotch()  // instant, so it isn't caught mid-animation
+                NotificationCenter.default.post(name: .closeNotchRequested, object: nil)
+            }
+        }
+
         Task.detached { [folder] in
             let ok = Self.runScreencapture(args)
             let landed = ok && FileManager.default.fileExists(atPath: tempURL.path)
@@ -114,6 +137,7 @@ final class ScreenshotManager: ObservableObject {
             // state — the capture is done, naming is off the critical path.
             await MainActor.run {
                 self.isBusy = false
+                self.restoreNotch()
                 self.reload()
             }
             guard landed else { return }  // cancelled window pick writes no file
@@ -122,6 +146,19 @@ final class ScreenshotManager: ObservableObject {
             _ = await Self.rename(tempURL, in: folder)
             await MainActor.run { self.reload() }
         }
+    }
+
+    // MARK: - Notch hiding (for Selection captures)
+
+    private func hideNotch() {
+        let windows = NotchSpaceManager.shared.notchSpace.windows
+        savedNotchAlphas = windows.map { ($0, $0.alphaValue) }
+        windows.forEach { $0.alphaValue = 0 }
+    }
+
+    private func restoreNotch() {
+        savedNotchAlphas.forEach { $0.0.alphaValue = $0.1 }
+        savedNotchAlphas = []
     }
 
     // MARK: - History actions

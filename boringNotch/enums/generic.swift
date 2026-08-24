@@ -69,6 +69,23 @@ enum SliderColorEnum: String, CaseIterable, Defaults.Serializable {
     }
 }
 
+/// What the notch does while a ⌘⇧4 Selection screenshot is being taken.
+enum ScreenshotSelectionNotchBehavior: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case include   // leave the notch visible (it may appear in the shot)
+    case hide      // hide the notch for the duration of the capture, then restore
+    case close     // collapse the notch before capturing
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .include: return "Include the notch"
+        case .hide: return "Hide the notch during capture"
+        case .close: return "Close the notch first"
+        }
+    }
+}
+
 enum WeekStartDay: String, CaseIterable, Identifiable, Defaults.Serializable {
     case system
     case sunday

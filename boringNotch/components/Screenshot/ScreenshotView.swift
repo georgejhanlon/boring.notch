@@ -22,6 +22,9 @@ struct ScreenshotView: View {
     /// Delay (seconds) for the timed capture.
     @State private var timerSeconds = 5
 
+    /// Row currently under the pointer (shows its delete control).
+    @State private var hoveredItem: URL?
+
     /// Set from ContentView so scroll/hover over the history suppresses the
     /// notch close gesture (mirrors the Clipboard/Checklist convention).
     @Binding var isHovering: Bool
@@ -68,20 +71,22 @@ struct ScreenshotView: View {
 
             Spacer(minLength: 0)
         }
-        .frame(width: 148, alignment: .leading)
+        .frame(width: 164, alignment: .leading)
     }
 
     /// Timed full-screen capture with an inline "+ N −" stepper.
     private var timerButton: some View {
-        HStack(spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: "timer").imageScale(.medium).frame(width: 18)
-                Text("Timer").font(.system(.body, design: .rounded))
+        HStack(spacing: 5) {
+            HStack(spacing: 6) {
+                Image(systemName: "timer").imageScale(.medium).frame(width: 16)
+                Text("Timer")
+                    .font(.system(.body, design: .rounded))
+                    .fixedSize()
             }
             .contentShape(Rectangle())
             .onTapGesture { manager.capture(.fullScreen, delay: timerSeconds) }
 
-            Spacer(minLength: 4)
+            Spacer(minLength: 2)
 
             secondsStep("plus") { timerSeconds += 1 }
             Text("\(timerSeconds)")
@@ -172,6 +177,7 @@ struct ScreenshotView: View {
 
     private func row(_ item: ScreenshotItem) -> some View {
         let selected = selection.contains(item.url)
+        let hovered = hoveredItem == item.url
         return ZStack {
             HStack(spacing: 8) {
                 Group {
@@ -211,8 +217,25 @@ struct ScreenshotView: View {
                 dragURLs: { dragURLs(for: item) },
                 preview: { manager.thumbnail(for: item) }
             )
+
+            // Hover-only delete on the trailing edge: 1s hold, red sweep.
+            if hovered {
+                HStack {
+                    Spacer()
+                    HoldToDeleteButton(duration: 1, help: "Hold to delete") {
+                        delete(item)
+                    }
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(.black.opacity(0.55)))
+                    .padding(.trailing, 8)
+                }
+            }
         }
         .contentShape(Rectangle())
+        .onHover { hovering in
+            if hovering { hoveredItem = item.url }
+            else if hoveredItem == item.url { hoveredItem = nil }
+        }
     }
 
     // MARK: - Selection

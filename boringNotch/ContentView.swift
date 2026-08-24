@@ -166,7 +166,8 @@ struct ContentView: View {
                             .padding(.horizontal, topCornerRadius)
                     }
                     .shadow(
-                        color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
+                        color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow]
+                                 && coordinator.currentView != .screenshot)
                             ? .black.opacity(0.7) : .clear, radius: 6
                     )
                     // Removed conditional bottom padding when using custom 0 notch to keep layout stable
@@ -251,6 +252,9 @@ struct ContentView: View {
                         }
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
+                    .onReceive(NotificationCenter.default.publisher(for: .closeNotchRequested)) { _ in
+                        vm.close()
+                    }
                     .contextMenu {
                         Button("Settings") {
                             DispatchQueue.main.async {
