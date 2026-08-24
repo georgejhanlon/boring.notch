@@ -758,7 +758,8 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar && !isHoveringChecklist && !isHoveringClipboard && !isHoveringScreenshot else { return }
+        // The AI chat is a scrollable conversation — never let scrolling through it close the notch.
+        guard vm.notchState == .open && coordinator.currentView != .claude && !vm.isHoveringCalendar && !isHoveringChecklist && !isHoveringClipboard && !isHoveringScreenshot else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20

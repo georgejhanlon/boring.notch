@@ -76,7 +76,7 @@ struct BoringHeader: View {
                                 .frame(width: 30, height: 30)
                                 .overlay {
                                     Image(systemName: "sparkles")
-                                        .foregroundColor(coordinator.currentView == .claude ? .claudeOrange : .gray)
+                                        .foregroundColor(coordinator.currentView == .claude ? .white : .gray)
                                         .imageScale(.medium)
                                 }
                         }

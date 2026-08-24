@@ -22,6 +22,7 @@ struct ClaudeChatView: View {
     @StateObject private var keyStore = APIKeyStore.shared
 
     @State private var draft: String = ""
+    @State private var showSwitchConfirm = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -38,6 +39,9 @@ struct ClaudeChatView: View {
         .padding(.top, 2)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay {
+            if showSwitchConfirm { switchConfirm }
+        }
         // Keep the notch open and key so the field can receive typing.
         .background(NotchKeyFocusEnabler(isEditing: true))
         .onAppear {
@@ -106,9 +110,12 @@ struct ClaudeChatView: View {
     private var header: some View {
         HStack(spacing: 8) {
             // One-click switch between Claude and on-device Apple Intelligence.
+            // Confirm first if there's a chat in progress (switching starts anew).
             Button {
-                withAnimation(.smooth) {
-                    store.backend = (store.backend == .claude ? .appleIntelligence : .claude)
+                if store.isEmpty {
+                    performBackendSwitch()
+                } else {
+                    withAnimation(.smooth) { showSwitchConfirm = true }
                 }
             } label: {
                 HStack(spacing: 5) {
@@ -171,6 +178,82 @@ struct ClaudeChatView: View {
         }
     }
 
+    /// The model we'd switch to from the current one.
+    private var otherBackend: ChatBackend {
+        store.backend == .claude ? .appleIntelligence : .claude
+    }
+
+    /// User bubble / send accent: Claude orange, or iMessage blue for Apple Intelligence.
+    private var userAccent: Color {
+        store.backend == .appleIntelligence
+            ? Color(red: 0.0, green: 0.478, blue: 1.0)
+            : .claudeOrange
+    }
+
+    private func performBackendSwitch() {
+        let next = otherBackend
+        withAnimation(.smooth) {
+            store.clear()          // switching starts a fresh chat
+            store.backend = next
+            showSwitchConfirm = false
+        }
+        inputFocused = true
+    }
+
+    // MARK: - Switch confirmation (in-notch, not an NSAlert)
+
+    private var switchConfirm: some View {
+        ZStack {
+            Color.black.opacity(0.45)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.smooth) { showSwitchConfirm = false } }
+
+            VStack(spacing: 8) {
+                Text("Switch to \(otherBackend.title)?")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("This will start a new chat.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.gray)
+
+                HStack(spacing: 8) {
+                    Button {
+                        withAnimation(.smooth) { showSwitchConfirm = false }
+                    } label: {
+                        Text("Cancel")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        performBackendSwitch()
+                    } label: {
+                        Text("Switch")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14).padding(.vertical, 6)
+                            .background(Capsule().fill(Color.claudeOrange))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 2)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(white: 0.13))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(0.12))
+            )
+            .fixedSize()
+        }
+    }
+
     @ViewBuilder private var backendIcon: some View {
         switch store.backend {
         case .claude:
@@ -178,7 +261,17 @@ struct ClaudeChatView: View {
         case .appleIntelligence:
             Image(systemName: "sparkles")
                 .font(.system(size: 13))
-                .foregroundStyle(Color.claudeOrange)
+                .foregroundStyle(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.98, green: 0.42, blue: 0.55),
+                            Color(red: 0.66, green: 0.36, blue: 0.93),
+                            Color(red: 0.29, green: 0.56, blue: 0.99),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         }
     }
 
@@ -235,7 +328,7 @@ struct ClaudeChatView: View {
                 .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(isUser ? Color.claudeOrange.opacity(0.85) : Color.white.opacity(0.10))
+                        .fill(isUser ? userAccent.opacity(0.85) : Color.white.opacity(0.10))
                 )
             if !isUser { Spacer(minLength: 24) }
         }
@@ -262,7 +355,7 @@ struct ClaudeChatView: View {
             Button(action: send) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 22))
-                    .foregroundStyle(canSend ? Color.claudeOrange : Color.gray.opacity(0.5))
+                    .foregroundStyle(canSend ? userAccent : Color.gray.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
