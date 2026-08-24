@@ -6,13 +6,25 @@
 //  uses. Stored in the Keychain (see APIKeyStore), not app preferences.
 //
 
+import Defaults
 import SwiftUI
 
 struct ClaudeSettings: View {
     @StateObject private var keyStore = APIKeyStore.shared
+    @Default(.aiChatExpandableHeight) private var aiChatExpandableHeight
 
     var body: some View {
         Form {
+            Section {
+                Toggle("Adjustable chat height", isOn: $aiChatExpandableHeight)
+            } header: {
+                Text("Chat Window")
+            } footer: {
+                Text("Drag the handle at the bottom of the notch while the AI chat is open to make it taller. Turn this off to keep the chat at its default height.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section {
                 SecureField("sk-ant-…", text: $keyStore.apiKey)
                     .textFieldStyle(.roundedBorder)
@@ -40,6 +52,6 @@ struct ClaudeSettings: View {
             }
         }
         .accentColor(.effectiveAccent)
-        .navigationTitle("Claude")
+        .navigationTitle("AI")
     }
 }

@@ -237,6 +237,10 @@ extension Defaults.Keys {
     static let focusTimerDND = Key<Bool>("focusTimerDND", default: false)
     static let screenshotSelectionNotchBehavior = Key<ScreenshotSelectionNotchBehavior>("screenshotSelectionNotchBehavior", default: .hide)
     static let chatBackend = Key<ChatBackend>("chatBackend", default: .claude)
+    // AI chat: allow dragging the bottom of the notch to make the chat taller.
+    static let aiChatExpandableHeight = Key<Bool>("aiChatExpandableHeight", default: true)
+    // Persisted extra height (points) added to the open notch while in the AI chat.
+    static let aiChatExtraHeight = Key<Double>("aiChatExtraHeight", default: 0)
     static let openNotchOnHover = Key<Bool>("openNotchOnHover", default: true)
     static let extendHoverArea = Key<Bool>("extendHoverArea", default: false)
     static let notchHeightMode = Key<WindowHeightMode>(

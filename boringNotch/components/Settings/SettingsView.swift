@@ -40,7 +40,7 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .checklist: "Checklist"
         case .screenshot: "Screenshots"
         case .email: "Email"
-        case .claude: "Claude"
+        case .claude: "AI"
         case .mirror: "Mirror"
         case .shortcuts: "Shortcuts"
         case .advanced: "Advanced"
