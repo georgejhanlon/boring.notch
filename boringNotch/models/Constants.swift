@@ -236,6 +236,8 @@ extension Defaults.Keys {
     static let enableHaptics = Key<Bool>("enableHaptics", default: true)
     static let focusTimerDND = Key<Bool>("focusTimerDND", default: false)
     static let screenshotSelectionNotchBehavior = Key<ScreenshotSelectionNotchBehavior>("screenshotSelectionNotchBehavior", default: .hide)
+    // Whether a full-screen capture includes the notch overlay (off = hidden for the shot).
+    static let screenshotFullScreenIncludeNotch = Key<Bool>("screenshotFullScreenIncludeNotch", default: false)
     static let chatBackend = Key<ChatBackend>("chatBackend", default: .claude)
     // AI chat: allow dragging the bottom of the notch to make the chat taller.
     static let aiChatExpandableHeight = Key<Bool>("aiChatExpandableHeight", default: true)

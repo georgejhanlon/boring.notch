@@ -11,6 +11,7 @@ import SwiftUI
 
 struct ScreenshotSettings: View {
     @Default(.screenshotSelectionNotchBehavior) private var notchBehavior
+    @Default(.screenshotFullScreenIncludeNotch) private var fullScreenIncludeNotch
 
     var body: some View {
         Form {
@@ -20,10 +21,11 @@ struct ScreenshotSettings: View {
                         Text(behavior.title).tag(behavior)
                     }
                 }
+                Toggle("Include the notch in a Full Screen capture", isOn: $fullScreenIncludeNotch)
             } header: {
                 Text("Notch")
             } footer: {
-                Text("Controls the notch while you drag the ⌘⇧4 crosshair selection. Hiding or closing keeps the notch out of the screenshot.")
+                Text("The Selection option controls the notch while you drag the ⌘⇧4 crosshair. For a Full Screen capture, turn the toggle off to hide the notch overlay so it doesn't appear in the shot.")
                     .foregroundStyle(.secondary)
                     .font(.caption)
             }

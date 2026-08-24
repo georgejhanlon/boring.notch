@@ -117,20 +117,30 @@ final class ScreenshotManager: ObservableObject {
         if delay > 0 { args += ["-T", String(delay)] }  // -T: capture after N seconds
         args.append(tempURL.path)
 
-        // Selection captures can hide/close the notch so it stays out of frame.
-        if mode == .window {
+        // Keep the notch out of frame when configured to.
+        var hidNotch = false
+        switch mode {
+        case .window:
             switch Defaults[.screenshotSelectionNotchBehavior] {
             case .include:
                 break
             case .hide:
-                hideNotch()
+                hideNotch(); hidNotch = true
             case .close:
-                hideNotch()  // instant, so it isn't caught mid-animation
+                hideNotch(); hidNotch = true  // instant, so it isn't caught mid-animation
                 NotificationCenter.default.post(name: .closeNotchRequested, object: nil)
+            }
+        case .fullScreen:
+            if !Defaults[.screenshotFullScreenIncludeNotch] {
+                hideNotch(); hidNotch = true
             }
         }
 
         Task.detached { [folder] in
+            // For an instant capture, give the compositor a moment to drop the
+            // now-hidden notch before the bitmap is grabbed. Timed captures (-T)
+            // already wait, and selection (-i) waits on the user.
+            if hidNotch && delay == 0 { try? await Task.sleep(for: .milliseconds(120)) }
             let ok = Self.runScreencapture(args)
             let landed = ok && FileManager.default.fileExists(atPath: tempURL.path)
             // Show it instantly with its provisional name and clear the busy
